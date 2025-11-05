@@ -7,4 +7,7 @@ export class CreateUserInput {
 
   @Field(() => String, { description: 'Example field (placeholder)' })
   name: string;
+
+  @Field(() => String, { description: 'Example field (placeholder)' })
+  password: string;
 }

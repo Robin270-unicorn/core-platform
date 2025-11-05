@@ -8,11 +8,18 @@ curl -X POST http://localhost:3000/graphql \
 
 echo -e "\n\n"
 
+# Create User Mutation
+echo "Creating User..."
+curl -X POST http://localhost:3000/graphql \
+  -H "Content-Type: application/json" \
+  -d '{"query":"mutation { createUser(email: \"test@example.com\", name: \"Test\", password: \"secret123\") }"}'
+
+echo -e "\n\n"
+
 # Test Login Mutation
 echo "Testing Login Mutation..."
 curl -X POST http://localhost:3000/graphql \
   -H "Content-Type: application/json" \
-  -d '{"query":"mutation { login(email: \"test@example.com\") }"}'
+  -d '{"query":"mutation { login(email: \"test@example.com\", password: \"secret123\") }"}'
 
 echo -e "\n"
-

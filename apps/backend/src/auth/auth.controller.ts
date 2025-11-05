@@ -37,4 +37,14 @@ export class AuthController {
   generateToken(@Payload() email: string) {
     return this.authService.generateToken(email);
   }
+
+  @MessagePattern('hashPassword')
+  hashPassword(@Payload() password: string) {
+    return this.authService.hashPassword(password);
+  }
+
+  @MessagePattern('comparePasswords')
+  comparePasswords(@Payload() data: { password: string; hash: string }) {
+    return this.authService.comparePasswords(data.password, data.hash);
+  }
 }

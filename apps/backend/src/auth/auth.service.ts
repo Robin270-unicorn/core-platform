@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import * as bcrypt from 'bcrypt';
 import { CreateAuthDto } from './dto/create-auth.dto';
 import { UpdateAuthDto } from './dto/update-auth.dto';
 
@@ -15,8 +16,18 @@ export class AuthService {
   constructor(private readonly jwtService: JwtService) {}
 
   async generateToken(email: string): Promise<string> {
+      //TODO: put userID instead of email in payload
     const payload: JwtPayload = { sub: email, email };
     return this.jwtService.signAsync(payload);
+  }
+
+  async hashPassword(password: string): Promise<string> {
+    const saltRounds = 10;
+    return bcrypt.hash(password, saltRounds);
+  }
+
+  async comparePasswords(password: string, hashedPassword: string): Promise<boolean> {
+    return bcrypt.compare(password, hashedPassword);
   }
 
   create(_createAuthDto: CreateAuthDto) {

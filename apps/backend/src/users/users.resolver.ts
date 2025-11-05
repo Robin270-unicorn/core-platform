@@ -15,14 +15,16 @@ export class UserResolver {
     async createUser(
         @Args('email') email: string,
         @Args('name') name: string,
+        @Args('password') password: string,
     ): Promise<string> {
-        return this.userService.create({ email, name });
+        return this.userService.create({ email, name, password });
     }
 
     @Mutation(() => String)
     async login(
-        @Args('email') email: string
+        @Args('email') email: string,
+        @Args('password') password: string,
     ): Promise<string> {
-        return this.userService.login(email);
+        return this.userService.login(email, password);
     }
 }

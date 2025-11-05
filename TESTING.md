@@ -6,8 +6,6 @@ The backend runs as a **hybrid application**:
 - **HTTP/GraphQL Server**: Port 3000
 - **TCP Microservice**: Port 4001
 
-Both run in the same process - no Docker Compose needed!
-
 ## How to Start
 
 ### Option 1: Development Mode (with hot reload)
@@ -38,48 +36,53 @@ node apps/backend/dist/main.js
 
 ### Option 3: Manual curl commands
 
-**Test Hello Query:**
+Hello Query:
 ```bash
 curl -X POST http://localhost:3000/graphql \
   -H "Content-Type: application/json" \
   -d '{"query":"query { hello }"}'
 ```
 
-**Test Login Mutation (with microservice call):**
+Create User (with password):
 ```bash
 curl -X POST http://localhost:3000/graphql \
   -H "Content-Type: application/json" \
-  -d '{"query":"mutation { login(email: \"test@example.com\") }"}'
+  -d '{"query":"mutation { createUser(email: \"test@example.com\", name: \"Test\", password: \"secret123\") }"}'
+```
+
+Login (email + password):
+```bash
+curl -X POST http://localhost:3000/graphql \
+  -H "Content-Type: application/json" \
+  -d '{"query":"mutation { login(email: \"test@example.com\", password: \"secret123\") }"}'
+```
+
+The login mutation returns a JWT string. Use it in Authorization headers for protected endpoints:
+```
+Authorization: Bearer <token>
 ```
 
 ## How It Works
 
-### Login Flow:
-1. GraphQL mutation `login(email: "test@example.com")` hits UserResolver
-2. UserResolver calls UsersService.login(email)
-3. UsersService sends TCP message `'generateToken'` to microservice on port 4001
-4. AuthController receives the message pattern
-5. AuthController calls AuthService.generateToken(email)
-6. AuthService generates mock token: `mock_token_<base64_payload>`
-7. Token returns through the microservice back to client
+### Login Flow
+1. GraphQL mutation `login(email: "...", password: "...")` hits `UserResolver`.
+2. `UsersService.login` looks up the in-memory user by email.
+3. It sends `comparePasswords` via TCP microservice to `AuthController` to validate the password against the stored hash.
+4. If valid, it sends `generateToken` to get a signed JWT (with `sub` and `email`).
+5. The token is returned to the client.
 
-### Example Response:
-```json
-{
-  "data": {
-    "login": "mock_token_eyJlbWFpbCI6InRlc3RAZXhhbXBsZS5jb20iLCJ1c2VySWQiOjEyMzQsImlhdCI6MTY5ODc4OTEyMzQ1Nn0="
-  }
-}
-```
+### User Creation
+1. GraphQL mutation `createUser(email, name, password)` hits `UserResolver`.
+2. `UsersService.create` sends `hashPassword` to the microservice to hash the password.
+3. The user (email, name, passwordHash) is stored in an in-memory Map (demo only).
 
 ## Microservice Communication
 
 The microservice communication uses **TCP transport** via `@nestjs/microservices`:
 
-- **Client**: UsersService (sends messages)
-- **Server**: AuthController (receives messages via @MessagePattern)
-- **Transport**: TCP on localhost:4001
-- **Pattern**: `'generateToken'`
+- Client: `UsersService` (sends messages)
+- Server: `AuthController` (receives messages via `@MessagePattern`)
+- Transport: TCP on `localhost:4001`
+- Patterns: `hashPassword`, `comparePasswords`, `generateToken`
 
 No separate microservice process needed - everything runs in one NestJS application!
-
