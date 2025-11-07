@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: nx-postgres
+    environment:
+      POSTGRES_DB: platform
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: root
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - nx-network
+
+volumes:
+  pgdata:
+
+networks:
+  nx-network:

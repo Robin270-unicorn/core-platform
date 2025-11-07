@@ -3,7 +3,7 @@
 ## Architecture Overview
 
 The backend runs as a **hybrid application**:
-- **HTTP/GraphQL Server**: Port 3000
+- **HTTP/GraphQL Server**: Port 3030
 - **TCP Microservice**: Port 4001
 
 ## How to Start
@@ -26,7 +26,7 @@ node apps/backend/dist/main.js
 
 ### Option 1: GraphQL Playground
 1. Start the server: `npx nx serve backend`
-2. Open browser: http://localhost:3000/graphql
+2. Open browser: http://localhost:3030/graphql
 3. Run queries/mutations in the playground
 
 ### Option 2: Using the test script
@@ -38,21 +38,21 @@ node apps/backend/dist/main.js
 
 Hello Query:
 ```bash
-curl -X POST http://localhost:3000/graphql \
+curl -X POST http://localhost:3030/graphql \
   -H "Content-Type: application/json" \
   -d '{"query":"query { hello }"}'
 ```
 
 Create User (with password):
 ```bash
-curl -X POST http://localhost:3000/graphql \
+curl -X POST http://localhost:3030/graphql \
   -H "Content-Type: application/json" \
   -d '{"query":"mutation { createUser(email: \"test@example.com\", name: \"Test\", password: \"secret123\") }"}'
 ```
 
 Login (email + password):
 ```bash
-curl -X POST http://localhost:3000/graphql \
+curl -X POST http://localhost:3030/graphql \
   -H "Content-Type: application/json" \
   -d '{"query":"mutation { login(email: \"test@example.com\", password: \"secret123\") }"}'
 ```

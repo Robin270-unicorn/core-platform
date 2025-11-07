@@ -2,25 +2,21 @@ import { Injectable, Inject, UnauthorizedException, ConflictException } from '@n
 import { ClientProxy } from '@nestjs/microservices';
 import { CreateUserInput } from './dto/create-user.input';
 import { firstValueFrom } from 'rxjs';
+import {Repository} from "typeorm";
+import {User} from "./entities/user.entity";
 
-// temporary user store for demo
-interface StoredUser {
-  email: string;
-  name: string;
-  passwordHash: string;
-}
 
 @Injectable()
 export class UsersService {
-  private users = new Map<string, StoredUser>();
-
   constructor(
     @Inject('AUTH_SERVICE') private readonly authClient: ClientProxy,
+    @Inject('USER_REPOSITORY') private readonly userRepository: Repository<User>,
   ) {}
 
   async create(createUserInput: CreateUserInput) {
     const { email, name, password } = createUserInput;
-    if (this.users.has(email)) {
+    const exists = await this.userRepository.findOne({where: {email}});
+    if (exists) {
       throw new ConflictException('User already exists');
     }
 
@@ -28,20 +24,18 @@ export class UsersService {
       this.authClient.send<string>('hashPassword', password)
     );
 
-    const user: StoredUser = { email, name, passwordHash };
-    this.users.set(email, user);
-
-    return `User ${email} created`;
+    const user = this.userRepository.create({email, name, password: passwordHash});
+    return this.userRepository.save(user);
   }
 
   async login(email: string, password: string) {
-    const user = this.users.get(email);
+    const user = await this.userRepository.findOne({where: {email}});
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
     }
 
     const isValid = await firstValueFrom(
-      this.authClient.send<boolean>('comparePasswords', { password, hash: user.passwordHash })
+      this.authClient.send<boolean>('comparePasswords', { password, hash: user.password })
     );
 
     if (!isValid) {
@@ -49,7 +43,7 @@ export class UsersService {
     }
 
     return firstValueFrom(
-      this.authClient.send<string>('generateToken', email)
+      this.authClient.send<string>('generateToken', {email, userId: user.id})
     );
   }
 }

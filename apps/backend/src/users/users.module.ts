@@ -2,6 +2,8 @@ import { Module } from '@nestjs/common';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import { UsersService } from './users.service';
 import { UserResolver } from './users.resolver';
+import {userProviders} from "./user.providers";
+import {DatabaseModule} from "../database/database.module";
 
 @Module({
   imports: [
@@ -15,7 +17,8 @@ import { UserResolver } from './users.resolver';
         },
       },
     ]),
+    DatabaseModule
   ],
-  providers: [UserResolver, UsersService],
+  providers: [UserResolver, UsersService, ...userProviders],
 })
 export class UsersModule {}
