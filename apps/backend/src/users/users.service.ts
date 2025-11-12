@@ -5,6 +5,7 @@ import { firstValueFrom } from 'rxjs';
 import {Repository} from "typeorm";
 import {User} from "./entities/user.entity";
 import {Session} from "../auth/entities/session.entity";
+import { Role } from '../auth/enums/role.enum';
 
 
 @Injectable()
@@ -15,7 +16,7 @@ export class UsersService {
   ) {}
 
   async create(createUserInput: CreateUserInput) {
-    const { email, name, password } = createUserInput;
+    const { email, name, password, role } = createUserInput;
     const exists = await this.userRepository.findOne({where: {email}});
     if (exists) {
       throw new ConflictException('User already exists');
@@ -25,7 +26,7 @@ export class UsersService {
       this.authClient.send<string>('hashPassword', password)
     );
 
-    const user = this.userRepository.create({email, name, password: passwordHash});
+    const user = this.userRepository.create({email, name, password: passwordHash, role});
     return this.userRepository.save(user);
   }
 
@@ -48,7 +49,7 @@ export class UsersService {
     );
 
     return firstValueFrom(
-      this.authClient.send<string>('generateToken', {email, userId: user.id, sessionId})
+      this.authClient.send<string>('generateToken', {email, userId: user.id, sessionId, role: user.role})
     );
   }
 
@@ -72,5 +73,18 @@ export class UsersService {
 
   async findById(userId: string): Promise<User | null> {
     return this.userRepository.findOne({ where: { id: userId } });
+  }
+
+  async findAll(): Promise<User[]> {
+    return this.userRepository.find();
+  }
+
+  async updateUserRole(userId: string, role: Role): Promise<User> {
+    await this.userRepository.update(userId, { role });
+    const user = await this.findById(userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+    return user;
   }
 }

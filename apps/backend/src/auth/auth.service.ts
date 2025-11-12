@@ -3,12 +3,14 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import {Repository} from "typeorm";
 import {Session} from "./entities/session.entity";
+import { Role } from './enums/role.enum';
 
 export interface JwtPayload {
   sub: string;
   email: string;
   userId: string;
   sid: string;
+  role: Role;
   iat?: number;
   exp?: number;
 }
@@ -21,8 +23,8 @@ export class AuthService {
 
   sessionExpiryDays = 7;
 
-  async generateToken(email: string, userId: string, sid: string): Promise<string> {
-    const payload: JwtPayload = { sub: email, email, userId, sid };
+  async generateToken(email: string, userId: string, sid: string, role: Role): Promise<string> {
+    const payload: JwtPayload = { sub: email, email, userId, sid, role };
     return this.jwtService.signAsync(payload);
   }
 

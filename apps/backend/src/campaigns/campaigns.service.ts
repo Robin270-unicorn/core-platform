@@ -134,4 +134,28 @@ export class CampaignsService {
 
     return this.findCampaignStats(campaignId);
   }
+
+  async isOwner(campaignId: string, userId: string): Promise<boolean> {
+    const campaign = await this.campaignRepository.findOne({
+      where: { id: campaignId },
+      select: ['creatorId'],
+    });
+
+    return campaign?.creatorId === userId;
+  }
+
+  async approveCampaign(campaignId: string): Promise<Campaign> {
+    await this.campaignRepository.update(campaignId, { status: CampaignStatus.APPROVED });
+    return this.findCampaignById(campaignId);
+  }
+
+  async rejectCampaign(campaignId: string): Promise<Campaign> {
+    await this.campaignRepository.update(campaignId, { status: CampaignStatus.REJECTED });
+    return this.findCampaignById(campaignId);
+  }
+
+  async submitCampaign(campaignId: string): Promise<Campaign> {
+    await this.campaignRepository.update(campaignId, { status: CampaignStatus.SUBMITTED });
+    return this.findCampaignById(campaignId);
+  }
 }

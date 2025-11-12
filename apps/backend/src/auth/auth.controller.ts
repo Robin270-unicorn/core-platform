@@ -7,8 +7,8 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @MessagePattern('generateToken')
-  generateToken(@Payload() data: { email: string; userId: string; sessionId: string }) {
-    return this.authService.generateToken(data.email, data.userId, data.sessionId);
+  generateToken(@Payload() data: { email: string; userId: string; sessionId: string; role: string }) {
+    return this.authService.generateToken(data.email, data.userId, data.sessionId, data.role as any);
   }
 
   @MessagePattern('createSession')

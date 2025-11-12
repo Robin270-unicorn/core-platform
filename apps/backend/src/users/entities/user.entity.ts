@@ -1,5 +1,6 @@
 import { ObjectType, Field } from '@nestjs/graphql';
-import {Column, Entity, PrimaryGeneratedColumn} from "typeorm";
+import { Column, Entity, PrimaryGeneratedColumn } from "typeorm";
+import { Role } from '../../auth/enums/role.enum';
 
 @Entity()
 @ObjectType()
@@ -8,7 +9,7 @@ export class User {
   @Field(() => String, { description: 'ID of the user' })
   id: string;
 
-  @Column({unique: true})
+  @Column({ unique: true })
   @Field(() => String, { description: 'Email of the user' })
   email: string;
 
@@ -18,4 +19,12 @@ export class User {
   @Field(() => String, { description: 'Name of the user' })
   @Column()
   name: string;
+
+  @Column({
+    type: 'enum',
+    enum: Role,
+    default: Role.SUPPORTER,
+  })
+  @Field(() => Role, { description: 'Role of the user' })
+  role: Role;
 }

@@ -4,7 +4,10 @@ import { UsersService } from './users.service';
 import { Session } from '../auth/entities/session.entity';
 import { UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
 import { GetCurrentUser } from '../auth/decorators/get-current-user.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { Role } from '../auth/enums';
 import type { JwtPayload } from '../auth/auth.service';
 
 @Resolver(() => User)
@@ -65,4 +68,22 @@ export class UserResolver {
         }
         return user;
     }
+
+    @Mutation(() => User)
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles(Role.ADMIN, Role.MODERATOR)
+    async updateUserRole(
+        @Args('userId') userId: string,
+        @Args('role', { type: () => Role }) role: Role,
+    ): Promise<User> {
+        return this.userService.updateUserRole(userId, role);
+    }
+
+    @Query(() => [User])
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles(Role.ADMIN, Role.MODERATOR)
+    async getAllUsers(): Promise<User[]> {
+        return this.userService.findAll();
+    }
 }
+
