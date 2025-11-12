@@ -53,6 +53,7 @@ export default function SignUp() {
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
         body: JSON.stringify({
           query: /* GraphQL */ `
             mutation CreateUser($name: String!, $email: String!, $password: String!) {

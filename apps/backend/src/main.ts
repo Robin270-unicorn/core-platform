@@ -10,16 +10,19 @@ import { AppModule } from './app/app.module';
 async function bootstrap() {
     const app = await NestFactory.create(AppModule);
 
-    const allowOrigins = (process.env.FRONTEND_ORIGIN ?? 'http://localhost:4200')
+    const allowOrigins = (process.env.FRONTEND_ORIGIN ?? 'http://localhost:4200,http://localhost:3000')
         .split(',')
         .map((origin) => origin.trim())
         .filter(Boolean);
 
     app.enableCors({
         origin: allowOrigins.length === 1 ? allowOrigins[0] : allowOrigins,
-        credentials: false,
-        methods: ['GET', 'POST', 'OPTIONS'],
-        allowedHeaders: ['Content-Type', 'Authorization'],
+        credentials: true,
+        methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+        allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With'],
+        exposedHeaders: ['Authorization'],
+        preflightContinue: false,
+        optionsSuccessStatus: 204,
     });
 
     app.connectMicroservice({

@@ -52,6 +52,7 @@ export default function LoginPage() {
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
         body: JSON.stringify({
           query: /* GraphQL */ `
             mutation Login($email: String!, $password: String!) {

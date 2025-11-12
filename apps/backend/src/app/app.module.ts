@@ -10,6 +10,7 @@ import { CampaignsModule } from '../campaigns/campaigns.module';
     GraphQLModule.forRoot<ApolloDriverConfig>({
       driver: ApolloDriver,
       autoSchemaFile: true,
+      playground: true,
     }),
     AuthModule,
     UsersModule,
