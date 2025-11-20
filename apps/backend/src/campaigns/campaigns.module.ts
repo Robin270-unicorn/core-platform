@@ -5,10 +5,11 @@ import { CampaignFeedbackResolver } from './campaign-feedback.resolver';
 import { CampaignStatsResolver } from './campaign-stats.resolver';
 import { campaignProviders } from './campaign.providers';
 import { DatabaseModule } from '../database/database.module';
+import { AuthModule } from '../auth/auth.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
-  imports: [DatabaseModule, NotificationsModule.withClient()],
+  imports: [DatabaseModule, AuthModule, NotificationsModule],
   providers: [
     CampaignsService,
     CampaignsResolver,

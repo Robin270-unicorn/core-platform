@@ -3,10 +3,11 @@ import { WalletService } from './wallet.service';
 import { WalletResolver } from './wallet.resolver';
 import { walletProviders } from './wallet.providers';
 import { DatabaseModule } from '../database/database.module';
+import { AuthModule } from '../auth/auth.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
-  imports: [DatabaseModule, NotificationsModule.withClient()],
+  imports: [DatabaseModule, AuthModule, NotificationsModule],
   providers: [
     ...walletProviders,
     WalletService,

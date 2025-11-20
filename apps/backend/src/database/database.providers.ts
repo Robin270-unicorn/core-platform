@@ -1,14 +1,15 @@
 import { DataSource } from 'typeorm';
 import { User } from '../users/entities/user.entity';
 import { Session } from '../auth/entities/session.entity';
-import { Campaign, CampaignFeedback, CampaignStats } from '../campaigns/entities';
+import { Campaign, CampaignFeedback, CampaignStats, CampaignContribution } from '../campaigns/entities';
 import { Notification, NotificationPreference } from '../notifications/entities';
+import { WalletTX } from '../wallet/entities/wallet-tx.entity';
 
 export const databaseProviders = [
     {
         provide: 'DATA_SOURCE',
         useFactory: async () => {
-            const explicitEntities = [User, Session, Campaign, CampaignFeedback, CampaignStats, Notification, NotificationPreference].filter(Boolean);
+            const explicitEntities = [User, Session, Campaign, CampaignFeedback, CampaignStats, CampaignContribution, Notification, NotificationPreference, WalletTX].filter(Boolean);
             const entities = Array.from(new Set([...explicitEntities]));
 
             const dataSource = new DataSource({

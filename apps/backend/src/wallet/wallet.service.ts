@@ -63,7 +63,13 @@ export class WalletService {
       `/wallet`
     );
 
-    return savedTransaction;
+    // Načti transakci s relací user
+    const transactionWithUser = await this.walletTxRepository.findOne({
+      where: { id: savedTransaction.id },
+      relations: ['user'],
+    });
+
+    return transactionWithUser!;
   }
 
   async contributeToCampaign(contributorId: string, input: ContributeToCampaignInput): Promise<CampaignContribution> {
@@ -144,7 +150,13 @@ export class WalletService {
       `/wallet`
     );
 
-    return savedTransaction;
+    // Načti transakci s relací user
+    const transactionWithUser = await this.walletTxRepository.findOne({
+      where: { id: savedTransaction.id },
+      relations: ['user'],
+    });
+
+    return transactionWithUser!;
   }
 
   async refundContribution(contributionId: string, reason: string): Promise<WalletTX> {
@@ -187,7 +199,13 @@ export class WalletService {
       `/wallet`
     );
 
-    return savedRefund;
+    // Načti transakci s relací user
+    const refundWithUser = await this.walletTxRepository.findOne({
+      where: { id: savedRefund.id },
+      relations: ['user'],
+    });
+
+    return refundWithUser!;
   }
 
   async refundAllContributions(campaignId: string, reason: string): Promise<WalletTX[]> {

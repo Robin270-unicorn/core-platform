@@ -27,20 +27,11 @@ export function hasRole(userRole: Role, requiredRoles: Role[]): boolean {
   return requiredRoles.includes(userRole);
 }
 
-/**
- * Check if a user can perform an action based on their role
- */
-export function canPerformAction(
-  userRole: Role,
-  action: keyof typeof ROLE_ACTIONS
-): boolean {
-  return ROLE_ACTIONS[action].includes(userRole);
-}
 
 /**
  * Actions and which roles can perform them
  */
-export const ROLE_ACTIONS = {
+export const ROLE_ACTIONS: Record<string, Role[]> = {
   // Campaign actions
   VIEW_CAMPAIGNS: [Role.SUPPORTER, Role.CREATOR, Role.MODERATOR, Role.ADMIN],
   CREATE_CAMPAIGN: [Role.CREATOR, Role.ADMIN],
@@ -64,7 +55,17 @@ export const ROLE_ACTIONS = {
 
   // Platform settings
   MANAGE_SETTINGS: [Role.MODERATOR, Role.ADMIN],
-} as const;
+};
+
+/**
+ * Check if a user can perform an action based on their role
+ */
+export function canPerformAction(
+  userRole: Role,
+  action: keyof typeof ROLE_ACTIONS
+): boolean {
+  return ROLE_ACTIONS[action].includes(userRole);
+}
 
 /**
  * Get user-friendly role name
@@ -113,7 +114,7 @@ export function decodeToken(token: string): JwtPayload | null {
   try {
     // Using dynamic import to avoid issues if jwt-decode is not installed
     const { jwtDecode } = require('jwt-decode');
-    return jwtDecode<JwtPayload>(token);
+    return jwtDecode(token) as JwtPayload;
   } catch (error) {
     console.error('Failed to decode token:', error);
     return null;

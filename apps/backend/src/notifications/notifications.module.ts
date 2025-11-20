@@ -1,5 +1,6 @@
 import { Module, DynamicModule } from '@nestjs/common';
 import { DatabaseModule } from '../database/database.module';
+import { AuthModule } from '../auth/auth.module';
 import { notificationProviders } from './notification.providers';
 import { NotificationsService } from './notifications.service';
 import { NotificationsResolver } from './notifications.resolver';
@@ -10,14 +11,16 @@ import { notificationsClientProvider } from './notifications-client.provider';
 @Module({
     imports: [
         DatabaseModule,
+        AuthModule,
     ],
     providers: [
         ...notificationProviders,
         NotificationsService,
         NotificationsResolver,
+        NotificationsClient, // Add client here for monolith mode
     ],
     controllers: [NotificationsController],
-    exports: [NotificationsService],
+    exports: [NotificationsService, NotificationsClient], // Export client for other modules
 })
 export class NotificationsModule {
     /**
@@ -27,7 +30,7 @@ export class NotificationsModule {
     static withClient(): DynamicModule {
         return {
             module: NotificationsModule,
-            imports: [DatabaseModule, notificationsClientProvider],
+            imports: [DatabaseModule, AuthModule, notificationsClientProvider],
             providers: [
                 ...notificationProviders,
                 NotificationsService,

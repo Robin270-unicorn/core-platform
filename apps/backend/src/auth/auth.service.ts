@@ -75,8 +75,6 @@ export class AuthService {
       throw new UnauthorizedException('Session not found');
     }
 
-    console.log(session)
-
     if (session.revokedAt) {
       throw new UnauthorizedException('Session has been revoked');
     }
