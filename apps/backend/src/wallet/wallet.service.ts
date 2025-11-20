@@ -46,7 +46,7 @@ export class WalletService {
       type: TransactionType.DEPOSIT,
       amount,
       status: TransactionStatus.COMPLETED,
-      description: `Vklad ${amount} EUR`,
+      description: `Vklad ${amount} $`,
       externalReference,
     });
 
@@ -59,7 +59,7 @@ export class WalletService {
     await this.notificationsClient.createSuccessNotification(
       userId,
       'Vklad byl úspěšně proveden! 💰',
-      `Na váš účet bylo připsáno ${amount} EUR`,
+      `Na váš účet bylo připsáno ${amount} $`,
       `/wallet`
     );
 
@@ -88,7 +88,7 @@ export class WalletService {
       amount,
       campaignId,
       status: TransactionStatus.COMPLETED,
-      description: `Příspěvek na kampaň ${amount} EUR`,
+      description: `Příspěvek na kampaň ${amount} $`,
     });
 
     const savedTransaction = await this.walletTxRepository.save(transaction);

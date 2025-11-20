@@ -35,7 +35,7 @@ export class CampaignsService {
     await this.notificationsClient.createSuccessNotification(
       creatorId,
       'Kampaň byla úspěšně vytvořena',
-      `Vaše kampaň "${savedCampaign.name}" byla úspěšně vytvořena a čeká na schválení.`,
+      `Draft vaší kampaně "${savedCampaign.name}" byl úspěšně vytvořen.`,
       `/campaigns/${savedCampaign.id}`
     );
 
@@ -317,7 +317,7 @@ export class CampaignsService {
         await this.notificationsClient.createWarningNotification(
           contribution.contributorId,
           'Kampaň byla smazána - příspěvek vrácen 💸',
-          `Kampaň "${campaign.name}" byla smazána. Váš příspěvek ${contribution.amount} EUR byl vrácen zpět na váš účet. Důvod: ${reason}`,
+          `Kampaň "${campaign.name}" byla smazána. Váš příspěvek ${contribution.amount} $ byl vrácen zpět na váš účet. Důvod: ${reason}`,
           `/wallet`
         );
       }
@@ -328,7 +328,7 @@ export class CampaignsService {
       await this.notificationsClient.createInfoNotification(
         userId,
         'Kampaň smazána s vrácením příspěvků',
-        `Vaše kampaň "${campaign.name}" byla smazána. Celkem bylo vráceno ${totalRefunded} EUR ve ${contributions.length} příspěvcích.`,
+        `Vaše kampaň "${campaign.name}" byla smazána. Celkem bylo vráceno ${totalRefunded} $ ve ${contributions.length} příspěvcích.`,
         `/campaigns`
       );
     }

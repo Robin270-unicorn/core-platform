@@ -4,21 +4,15 @@ import { Permission } from './permission.enum';
 /**
  * Role-to-Permission mapping
  * This defines what each role can do in the system
+ * Note: Campaign ownership is context-specific, not role-based
  */
 export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   [Role.SUPPORTER]: [
     Permission.VIEW_CAMPAIGNS,
-    Permission.CONTRIBUTE_TO_CAMPAIGN,
-    Permission.READ_COMMENTS,
-    Permission.WRITE_COMMENT,
-    Permission.MANAGE_NOTIFICATIONS,
-  ],
-
-  [Role.CREATOR]: [
-    Permission.VIEW_CAMPAIGNS,
     Permission.CREATE_CAMPAIGN,
     Permission.UPDATE_OWN_CAMPAIGN,
     Permission.DELETE_OWN_CAMPAIGN,
+    Permission.CONTRIBUTE_TO_CAMPAIGN,
     Permission.READ_COMMENTS,
     Permission.WRITE_COMMENT,
     Permission.MANAGE_NOTIFICATIONS,
@@ -26,6 +20,9 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
 
   [Role.MODERATOR]: [
     Permission.VIEW_CAMPAIGNS,
+    Permission.CREATE_CAMPAIGN,
+    Permission.UPDATE_OWN_CAMPAIGN,
+    Permission.DELETE_OWN_CAMPAIGN,
     Permission.APPROVE_CAMPAIGN,
     Permission.REJECT_CAMPAIGN,
     Permission.READ_COMMENTS,

@@ -5,7 +5,6 @@
 
 export enum Role {
   SUPPORTER = 'SUPPORTER',
-  CREATOR = 'CREATOR',
   MODERATOR = 'MODERATOR',
   ADMIN = 'ADMIN',
 }
@@ -32,12 +31,12 @@ export function hasRole(userRole: Role, requiredRoles: Role[]): boolean {
  * Actions and which roles can perform them
  */
 export const ROLE_ACTIONS: Record<string, Role[]> = {
-  // Campaign actions
-  VIEW_CAMPAIGNS: [Role.SUPPORTER, Role.CREATOR, Role.MODERATOR, Role.ADMIN],
-  CREATE_CAMPAIGN: [Role.CREATOR, Role.ADMIN],
-  EDIT_OWN_CAMPAIGN: [Role.CREATOR, Role.ADMIN],
-  DELETE_OWN_CAMPAIGN: [Role.CREATOR, Role.ADMIN],
-  SUBMIT_CAMPAIGN: [Role.CREATOR],
+  // Campaign actions - anyone can create and manage their own campaigns
+  VIEW_CAMPAIGNS: [Role.SUPPORTER, Role.MODERATOR, Role.ADMIN],
+  CREATE_CAMPAIGN: [Role.SUPPORTER, Role.MODERATOR, Role.ADMIN],
+  EDIT_OWN_CAMPAIGN: [Role.SUPPORTER, Role.MODERATOR, Role.ADMIN],
+  DELETE_OWN_CAMPAIGN: [Role.SUPPORTER, Role.MODERATOR, Role.ADMIN],
+  SUBMIT_CAMPAIGN: [Role.SUPPORTER, Role.MODERATOR, Role.ADMIN],
   APPROVE_CAMPAIGN: [Role.MODERATOR, Role.ADMIN],
   REJECT_CAMPAIGN: [Role.MODERATOR, Role.ADMIN],
 
@@ -45,8 +44,8 @@ export const ROLE_ACTIONS: Record<string, Role[]> = {
   CONTRIBUTE: [Role.SUPPORTER, Role.ADMIN],
 
   // Comment actions
-  READ_COMMENTS: [Role.SUPPORTER, Role.CREATOR, Role.MODERATOR, Role.ADMIN],
-  WRITE_COMMENTS: [Role.SUPPORTER, Role.CREATOR, Role.MODERATOR, Role.ADMIN],
+  READ_COMMENTS: [Role.SUPPORTER, Role.MODERATOR, Role.ADMIN],
+  WRITE_COMMENTS: [Role.SUPPORTER, Role.MODERATOR, Role.ADMIN],
   MODERATE_COMMENTS: [Role.MODERATOR, Role.ADMIN],
 
   // User management
@@ -73,7 +72,6 @@ export function canPerformAction(
 export function getRoleDisplayName(role: Role): string {
   const displayNames: Record<Role, string> = {
     [Role.SUPPORTER]: 'Supporter',
-    [Role.CREATOR]: 'Creator',
     [Role.MODERATOR]: 'Moderator',
     [Role.ADMIN]: 'Administrator',
   };
@@ -85,8 +83,7 @@ export function getRoleDisplayName(role: Role): string {
  */
 export function getRoleDescription(role: Role): string {
   const descriptions: Record<Role, string> = {
-    [Role.SUPPORTER]: 'Contributor/investor - can view, contribute, and comment',
-    [Role.CREATOR]: 'Campaign owner - can create and manage own campaigns',
+    [Role.SUPPORTER]: 'Regular user - can create campaigns, contribute, and comment',
     [Role.MODERATOR]: 'Content manager - can approve/reject campaigns and moderate content',
     [Role.ADMIN]: 'System administrator - full access to platform management',
   };
@@ -99,7 +96,6 @@ export function getRoleDescription(role: Role): string {
 export function getRoleBadgeColor(role: Role): string {
   const colors: Record<Role, string> = {
     [Role.SUPPORTER]: 'blue',
-    [Role.CREATOR]: 'green',
     [Role.MODERATOR]: 'purple',
     [Role.ADMIN]: 'red',
   };

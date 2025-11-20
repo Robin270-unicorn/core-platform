@@ -240,7 +240,7 @@ export default function DemoPage() {
     try {
       const data = await fetchGraphQL(`
         query {
-          campaigns {
+          myCampaigns {
             id
             name
             description
@@ -252,7 +252,7 @@ export default function DemoPage() {
           }
         }
       `);
-      setCampaigns(data.campaigns);
+      setCampaigns(data.myCampaigns);
       setCampaignStatus('Campaigns loaded successfully');
     } catch (error: any) {
       setCampaignStatus(`Error: ${error.message}`);

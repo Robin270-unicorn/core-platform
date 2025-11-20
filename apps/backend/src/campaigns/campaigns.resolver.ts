@@ -8,7 +8,6 @@ import { CampaignContributionStats } from './dto/campaign-contribution-stats.dto
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { GetCurrentUser } from '../auth/decorators/get-current-user.decorator';
-import { Roles } from '../auth/decorators/roles.decorator';
 import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 import { Role, Permission } from '../auth/enums';
 import type {JwtPayload} from "../auth/auth.service";
@@ -18,8 +17,7 @@ export class CampaignsResolver {
   constructor(private readonly campaignsService: CampaignsService) {}
 
   @Mutation(() => Campaign)
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.CREATOR, Role.ADMIN)
+  @UseGuards(JwtAuthGuard)
   async createCampaign(
     @Args('createCampaignInput') createCampaignInput: CreateCampaignInput,
     @GetCurrentUser() user: JwtPayload,
@@ -38,8 +36,7 @@ export class CampaignsResolver {
   }
 
   @Query(() => [Campaign], { name: 'myCampaigns' })
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.CREATOR, Role.ADMIN)
+  @UseGuards(JwtAuthGuard)
   async findMyCampaigns(
     @GetCurrentUser() user: JwtPayload,
   ): Promise<Campaign[]> {
@@ -47,8 +44,7 @@ export class CampaignsResolver {
   }
 
   @Mutation(() => Campaign)
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.CREATOR, Role.ADMIN)
+  @UseGuards(JwtAuthGuard)
   async updateCampaign(
     @Args('updateCampaignInput') updateCampaignInput: UpdateCampaignInput,
     @GetCurrentUser() user: JwtPayload,
@@ -62,8 +58,7 @@ export class CampaignsResolver {
   }
 
   @Mutation(() => Boolean)
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.CREATOR, Role.ADMIN)
+  @UseGuards(JwtAuthGuard)
   async removeCampaign(
     @Args('id') id: string,
     @GetCurrentUser() user: JwtPayload,
@@ -77,8 +72,7 @@ export class CampaignsResolver {
   }
 
   @Mutation(() => Campaign)
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.CREATOR)
+  @UseGuards(JwtAuthGuard)
   async submitCampaign(
     @Args('campaignId') campaignId: string,
     @GetCurrentUser() user: JwtPayload,
@@ -133,8 +127,7 @@ export class CampaignsResolver {
   }
 
   @Mutation(() => Campaign)
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.CREATOR)
+  @UseGuards(JwtAuthGuard)
   async updateCampaignWithNotifications(
     @Args('updateCampaignInput') updateCampaignInput: UpdateCampaignInput,
     @GetCurrentUser() user: JwtPayload,
@@ -147,8 +140,7 @@ export class CampaignsResolver {
   }
 
   @Mutation(() => Boolean)
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.CREATOR, Role.ADMIN)
+  @UseGuards(JwtAuthGuard)
   async deleteCampaignWithRefunds(
     @Args('campaignId') campaignId: string,
     @Args('reason') reason: string,
@@ -158,31 +150,29 @@ export class CampaignsResolver {
   }
 
   @Query(() => [CampaignContribution], { name: 'campaignContributions' })
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.CREATOR, Role.ADMIN)
+  @UseGuards(JwtAuthGuard)
   async getCampaignContributions(
     @Args('campaignId') campaignId: string,
     @GetCurrentUser() user: JwtPayload,
   ): Promise<CampaignContribution[]> {
-    // Zkontroluj, jestli je uživatel vlastníkem nebo adminem
+    // Check if user is campaign owner or admin
     const isOwner = await this.campaignsService.isOwner(campaignId, user.userId);
     if (!isOwner && user.role !== Role.ADMIN) {
-      throw new ForbiddenException('Přístup pouze pro vlastníka kampane nebo administrátora');
+      throw new ForbiddenException('Access only for campaign owner or administrator');
     }
     return this.campaignsService.getCampaignContributions(campaignId);
   }
 
   @Query(() => CampaignContributionStats, { name: 'campaignContributionStats' })
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.CREATOR, Role.ADMIN)
+  @UseGuards(JwtAuthGuard)
   async getCampaignContributionStats(
     @Args('campaignId') campaignId: string,
     @GetCurrentUser() user: JwtPayload,
   ): Promise<CampaignContributionStats> {
-    // Zkontroluj, jestli je uživatel vlastníkem nebo adminem
+    // Check if user is campaign owner or admin
     const isOwner = await this.campaignsService.isOwner(campaignId, user.userId);
     if (!isOwner && user.role !== Role.ADMIN) {
-      throw new ForbiddenException('Přístup pouze pro vlastníka kampane nebo administrátora');
+      throw new ForbiddenException('Access only for campaign owner or administrator');
     }
     return this.campaignsService.getCampaignContributionStats(campaignId);
   }
