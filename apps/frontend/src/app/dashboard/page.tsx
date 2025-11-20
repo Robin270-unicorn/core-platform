@@ -131,6 +131,10 @@ export default function CampaignManagementDashboard() {
   const [formError, setFormError] = React.useState<string | null>(null);
   const [formSuccess, setFormSuccess] = React.useState<string | null>(null);
 
+  // Delete dialog state
+  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
+  const [campaignToDelete, setCampaignToDelete] = React.useState<string | null>(null);
+
   const [readiness, setReadiness] = React.useState<ReadinessItem[]>(initialReadiness);
 
   const fetchGraphQL = React.useCallback(async (query: string, variables?: any) => {
@@ -146,7 +150,7 @@ export default function CampaignManagementDashboard() {
 
     const result = await response.json();
     if (result.errors) {
-      throw new Error(result.errors[0].message);
+      console.error('GraphQL errors:', result.errors);
     }
     return result.data;
   }, [authToken]);
@@ -170,7 +174,9 @@ export default function CampaignManagementDashboard() {
           }
         }
       `);
-      setCampaigns(data.myCampaigns);
+      if (data && data.myCampaigns) {
+        setCampaigns(data.myCampaigns);
+      }
     } catch (error: any) {
       console.error('Failed to load campaigns:', error);
     } finally {
@@ -263,6 +269,40 @@ export default function CampaignManagementDashboard() {
       );
     } catch (error: any) {
       console.error('Failed to submit campaign:', error);
+    }
+  };
+
+  const openDeleteDialog = (campaignId: string) => {
+    setCampaignToDelete(campaignId);
+    setDeleteDialogOpen(true);
+  };
+
+  const closeDeleteDialog = () => {
+    setDeleteDialogOpen(false);
+    setCampaignToDelete(null);
+  };
+
+  const deleteCampaign = async () => {
+    if (!campaignToDelete) return;
+
+    try {
+      await fetchGraphQL(
+        `
+        mutation RemoveCampaign($id: String!) {
+          removeCampaign(id: $id)
+        }
+      `,
+        { id: campaignToDelete }
+      );
+
+      setCampaigns((prev) => prev.filter((c) => c.id !== campaignToDelete));
+      setFormSuccess('Campaign deleted successfully!');
+      setTimeout(() => setFormSuccess(null), 5000);
+      closeDeleteDialog();
+    } catch (error: any) {
+      console.error('Failed to delete campaign:', error);
+      setFormError(error.message || 'Failed to delete campaign');
+      closeDeleteDialog();
     }
   };
 
@@ -556,6 +596,7 @@ export default function CampaignManagementDashboard() {
                         campaigns={groupedCampaigns[status]}
                         status={status as CampaignStatus}
                         onSubmit={submitCampaign}
+                        onDelete={openDeleteDialog}
                       />
                     </TabsContent>
                   ),
@@ -596,6 +637,28 @@ export default function CampaignManagementDashboard() {
           </div>
         </section>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      {deleteDialogOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <Card className="w-full max-w-md mx-4">
+            <CardHeader>
+              <CardTitle>Delete Campaign</CardTitle>
+              <CardDescription>
+                Are you sure you want to delete this campaign? This action cannot be undone.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={closeDeleteDialog}>
+                Cancel
+              </Button>
+              <Button variant="destructive" onClick={deleteCampaign}>
+                Delete
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </main>
   );
 }
@@ -661,10 +724,12 @@ function CampaignTable({
   campaigns,
   status,
   onSubmit,
+  onDelete,
 }: {
   campaigns: Campaign[];
   status: CampaignStatus;
   onSubmit: (campaignId: string) => void;
+  onDelete: (campaignId: string) => void;
 }) {
   if (campaigns.length === 0) {
     return (
@@ -673,7 +738,9 @@ function CampaignTable({
           No {status.toLowerCase()} campaigns found.
         </p>
         <p className="mt-1 text-xs text-muted-foreground">
-          {status === 'DRAFT' ? 'Create your first campaign to get started!' : 'Check other tabs or adjust your filters.'}
+          {status === 'DRAFT'
+            ? 'Create your first campaign to get started!'
+            : 'Check other tabs or adjust your filters.'}
         </p>
       </div>
     );
@@ -690,7 +757,7 @@ function CampaignTable({
             <TableHead className="text-xs uppercase tracking-wide">Progress</TableHead>
             <TableHead className="text-xs uppercase tracking-wide">Status</TableHead>
             <TableHead className="text-xs uppercase tracking-wide">Updated</TableHead>
-            {status === 'DRAFT' && <TableHead className="text-xs uppercase tracking-wide">Action</TableHead>}
+            <TableHead className="text-xs uppercase tracking-wide text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -731,17 +798,27 @@ function CampaignTable({
                 <TableCell className="text-xs text-muted-foreground">
                   {formatDate(campaign.updatedAt)}
                 </TableCell>
-                {status === 'DRAFT' && (
-                  <TableCell>
+                <TableCell className="text-right">
+                  <div className="inline-flex items-center gap-2">
+                    {status === 'DRAFT' && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => onSubmit(campaign.id)}
+                      >
+                        Submit
+                      </Button>
+                    )}
+                    {/* Always show Delete so it's clearly visible */}
                     <Button
                       size="sm"
-                      variant="outline"
-                      onClick={() => onSubmit(campaign.id)}
+                      variant="destructive"
+                      onClick={() => onDelete(campaign.id)}
                     >
-                      Submit for Review
+                      Delete
                     </Button>
-                  </TableCell>
-                )}
+                  </div>
+                </TableCell>
               </TableRow>
             );
           })}
@@ -750,4 +827,3 @@ function CampaignTable({
     </div>
   );
 }
-

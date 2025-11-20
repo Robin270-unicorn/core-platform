@@ -111,7 +111,7 @@ export class WalletService {
     await this.notificationsClient.createSuccessNotification(
       contributorId,
       'Příspěvek byl odeslán! 🎯',
-      `Úspěšně jste přispěli ${amount} EUR na kampaň`,
+      `Úspěšně jste přispěli ${amount} $ na kampaň`,
       `/campaigns/${campaignId}`
     );
 
@@ -133,7 +133,7 @@ export class WalletService {
       type: TransactionType.BANK_WITHDRAWAL,
       amount,
       status: TransactionStatus.PENDING, // Výběr na banku bude vyžadovat zpracování
-      description: description || `Výběr ${amount} EUR na bankovní účet`,
+      description: description || `Výběr ${amount} $ na bankovní účet`,
       externalReference: bankAccount,
     });
 
@@ -146,7 +146,7 @@ export class WalletService {
     await this.notificationsClient.createInfoNotification(
       userId,
       'Žádost o výběr byla přijata 🏦',
-      `Vaše žádost o výběr ${amount} EUR byla přijata a bude zpracována do 3 pracovních dnů`,
+      `Vaše žádost o výběr ${amount} $ byla přijata a bude zpracována do 3 pracovních dnů`,
       `/wallet`
     );
 
@@ -195,7 +195,7 @@ export class WalletService {
     await this.notificationsClient.createInfoNotification(
       contribution.contributorId,
       'Příspěvek byl vrácen 💸',
-      `Váš příspěvek ${contribution.amount} EUR byl vrácen zpět na váš účet. Důvod: ${reason}`,
+      `Váš příspěvek ${contribution.amount} $ byl vrácen zpět na váš účet. Důvod: ${reason}`,
       `/wallet`
     );
 
