@@ -46,7 +46,7 @@ export class WalletService {
       type: TransactionType.DEPOSIT,
       amount,
       status: TransactionStatus.COMPLETED,
-      description: `Vklad ${amount} $`,
+      description: `Deposit ${amount} $`,
       externalReference,
     });
 

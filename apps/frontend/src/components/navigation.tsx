@@ -4,7 +4,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Button } from './ui/button';
-import { User, LayoutDashboard, Menu, X } from 'lucide-react';
+import { User, LayoutDashboard, Menu, X, CreditCard } from 'lucide-react';
 
 export function Navigation() {
   const pathname = usePathname();
@@ -23,6 +23,7 @@ export function Navigation() {
   const navLinks = authToken
     ? [
         { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+        { href: '/wallet', label: 'Wallet', icon: CreditCard },
         { href: '/profile', label: 'Profile', icon: User },
       ]
     : [];
@@ -118,4 +119,3 @@ export function Navigation() {
     </nav>
   );
 }
-

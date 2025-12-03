@@ -35,6 +35,21 @@ export interface PublicProfile {
   }[];
 }
 
+export type TransactionType = 'DEPOSIT' | 'WITHDRAWAL' | 'CAMPAIGN_CONTRIBUTION' | 'REFUND' | 'BANK_WITHDRAWAL';
+export type TransactionStatus = 'PENDING' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
+
+export interface WalletTX {
+  id: string;
+  userId: string;
+  type: TransactionType;
+  amount: number;
+  status: TransactionStatus;
+  campaignId?: string | null;
+  description?: string | null;
+  externalReference?: string | null;
+  createdAt: string;
+}
+
 async function fetchGraphQL<T>(query: string, variables?: Record<string, unknown>, token?: string | null): Promise<T> {
   const response = await fetch(GRAPHQL_ENDPOINT, {
     method: 'POST',
@@ -176,5 +191,84 @@ export async function getPublicProfileBySlug(slug: string) {
       }
     `,
     { slug },
+  );
+}
+
+export async function getWalletBalance(token: string | null) {
+  return fetchGraphQL<{ walletBalance: number }>(
+    `
+      query WalletBalance { 
+        walletBalance 
+      }
+    `,
+    undefined,
+    token,
+  );
+}
+
+export async function getWalletTransactions(token: string | null) {
+  return fetchGraphQL<{ walletTransactions: WalletTX[] }>(
+    `
+      query WalletTransactions {
+        walletTransactions {
+          id
+          userId
+          type
+          amount
+          status
+          campaignId
+          description
+          externalReference
+          createdAt
+        }
+      }
+    `,
+    undefined,
+    token,
+  );
+}
+
+export async function depositMoney(token: string | null, amount: number, externalReference?: string) {
+  return fetchGraphQL<{ depositMoney: WalletTX }>(
+    `
+      mutation DepositMoney($amount: Float!, $externalReference: String) {
+        depositMoney(amount: $amount, externalReference: $externalReference) {
+          id
+          userId
+          type
+          amount
+          status
+          description
+          externalReference
+          createdAt
+        }
+      }
+    `,
+    { amount, externalReference },
+    token,
+  );
+}
+
+export async function withdrawToBank(
+  token: string | null,
+  input: { amount: number; bankAccount: string; description?: string }
+) {
+  return fetchGraphQL<{ withdrawToBank: WalletTX }>(
+    `
+      mutation WithdrawToBank($input: BankWithdrawalInput!) {
+        withdrawToBank(input: $input) {
+          id
+          userId
+          type
+          amount
+          status
+          description
+          externalReference
+          createdAt
+        }
+      }
+    `,
+    { input },
+    token,
   );
 }
