@@ -1,4 +1,4 @@
-import { Resolver, Query, Mutation, Args } from '@nestjs/graphql';
+import { Resolver, Query, Mutation, Args, ResolveField, Parent } from '@nestjs/graphql';
 import { User } from './entities/user.entity';
 import { UsersService } from './users.service';
 import { Session } from '../auth/entities/session.entity';
@@ -123,5 +123,17 @@ export class UserResolver {
     async publicProfileBySlug(@Args('slug') slug: string): Promise<PublicProfile> {
         const { profile, creatorProfile, campaigns } = await this.profileService.getPublicProfileBySlug(slug);
         return { profile, creatorProfile: creatorProfile ?? undefined, campaigns };
+    }
+
+    @ResolveField(() => String, { nullable: true })
+    async displayName(@Parent() user: User): Promise<string | null> {
+        const profile = await this.userService.getOrCreateProfileForUser(user.id);
+        return profile.displayName || user.name;
+    }
+
+    @ResolveField(() => String, { nullable: true })
+    async avatarUrl(@Parent() user: User): Promise<string | null> {
+        const profile = await this.userService.getOrCreateProfileForUser(user.id);
+        return profile.avatarUrl;
     }
 }

@@ -31,4 +31,10 @@ export class User {
   @Column('decimal', { precision: 10, scale: 2, default: 0 })
   @Field(() => Number, { description: 'Wallet balance of the user' })
   walletBalance: number;
+
+  @Field(() => String, { description: 'Display name from profile', nullable: true })
+  displayName?: string;
+
+  @Field(() => String, { description: 'Avatar URL from profile', nullable: true })
+  avatarUrl?: string;
 }

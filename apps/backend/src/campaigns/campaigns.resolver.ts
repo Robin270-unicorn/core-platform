@@ -2,6 +2,7 @@ import { Resolver, Query, Mutation, Args } from '@nestjs/graphql';
 import { UseGuards, ForbiddenException } from '@nestjs/common';
 import { CampaignsService } from './campaigns.service';
 import { Campaign } from './entities/campaign.entity';
+import { Comment } from './entities/comment.entity';
 import { CampaignContribution } from './entities/campaign-contribution.entity';
 import { CreateCampaignInput, UpdateCampaignInput } from './dto';
 import { CampaignContributionStats } from './dto/campaign-contribution-stats.dto';
@@ -182,5 +183,21 @@ export class CampaignsResolver {
       throw new ForbiddenException('Access only for campaign owner or administrator');
     }
     return this.campaignsService.getCampaignContributionStats(campaignId);
+  }
+
+
+  @Mutation(() => Comment)
+  @UseGuards(JwtAuthGuard)
+  async addComment(
+    @Args('campaignId') campaignId: string,
+    @Args('content') content: string,
+    @GetCurrentUser() user: JwtPayload,
+  ): Promise<Comment> {
+    return this.campaignsService.addComment(campaignId, user.userId, content);
+  }
+
+  @Query(() => [Comment], { name: 'comments' })
+  async getComments(@Args('campaignId') campaignId: string): Promise<Comment[]> {
+    return this.campaignsService.getComments(campaignId);
   }
 }

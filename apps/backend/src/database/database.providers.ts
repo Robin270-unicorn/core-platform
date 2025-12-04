@@ -1,7 +1,7 @@
 import { DataSource } from 'typeorm';
 import { User } from '../users/entities/user.entity';
 import { Session } from '../auth/entities/session.entity';
-import { Campaign, CampaignContribution, CampaignFeedback, CampaignStats } from '../campaigns/entities';
+import { Campaign, CampaignContribution, CampaignFeedback, CampaignStats, Comment } from '../campaigns/entities';
 import { Notification, NotificationPreference } from '../notifications/entities';
 import { WalletTX } from '../wallet/entities/wallet-tx.entity';
 import { Profile } from '../users/entities/profile.entity';
@@ -23,6 +23,7 @@ export const databaseProviders = [
         WalletTX,
         Profile,
         CreatorProfile,
+        Comment,
       ].filter(Boolean);
 
       const entities = Array.from(new Set([...explicitEntities]));

@@ -213,8 +213,8 @@ export async function getPublicProfileBySlug(slug: string) {
 export async function getWalletBalance(token: string | null) {
   return fetchGraphQL<{ walletBalance: number }>(
     `
-      query WalletBalance { 
-        walletBalance 
+      query WalletBalance {
+        walletBalance
       }
     `,
     undefined,
@@ -537,3 +537,66 @@ export async function getMyCampaigns(token: string | null) {
   );
 }
 
+
+export interface Comment {
+  id: string;
+  content: string;
+  createdAt: string;
+  campaignId: string;
+  userId: string;
+  user: {
+    id: string;
+    displayName: string;
+    avatarUrl?: string | null;
+  };
+}
+
+export async function addComment(token: string | null, campaignId: string, content: string) {
+  return fetchGraphQL<{ addComment: Comment }>(
+    `
+      mutation AddComment($campaignId: String!, $content: String!) {
+        addComment(campaignId: $campaignId, content: $content) {
+          id
+          content
+          createdAt
+          user {
+            id
+            displayName
+            avatarUrl
+          }
+        }
+      }
+    `,
+    { campaignId, content },
+    token
+  );
+}
+
+export async function getComments(campaignId: string) {
+  return fetchGraphQL<{ comments: Comment[] }>(
+    `
+      query GetComments($campaignId: String!) {
+        comments(campaignId: $campaignId) {
+          id
+          content
+          createdAt
+          user {
+            id
+            displayName
+            avatarUrl
+          }
+        }
+      }
+    `,
+    { campaignId }
+  );
+}
+
+export function formatCurrency(amount: number): string {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(amount);
+}

@@ -4,6 +4,7 @@ import {Campaign, CampaignStatus} from './entities/campaign.entity';
 import {CampaignFeedback} from './entities/campaign-feedback.entity';
 import {CampaignStats} from './entities/campaign-stats.entity';
 import {CampaignContribution} from './entities/campaign-contribution.entity';
+import {Comment} from './entities/comment.entity';
 import {CreateCampaignFeedbackInput, CreateCampaignInput, UpdateCampaignInput, UpdateCampaignStatsInput} from './dto';
 import {NotificationsClient} from '../notifications/notifications.client';
 
@@ -18,6 +19,8 @@ export class CampaignsService {
     private campaignStatsRepository: Repository<CampaignStats>,
     @Inject('CAMPAIGN_CONTRIBUTION_REPOSITORY')
     private contributionRepository: Repository<CampaignContribution>,
+    @Inject('COMMENT_REPOSITORY')
+    private commentRepository: Repository<Comment>,
     private notificationsClient: NotificationsClient,
   ) {}
 
@@ -381,5 +384,34 @@ export class CampaignsService {
       averageContribution,
       contributorsCount: uniqueContributors,
     };
+  }
+  async addComment(campaignId: string, userId: string, content: string): Promise<Comment> {
+    const comment = this.commentRepository.create({
+      campaignId,
+      userId,
+      content,
+    });
+
+    const savedComment = await this.commentRepository.save(comment);
+
+    // Fetch with relations to return full object
+    const foundComment = await this.commentRepository.findOne({
+      where: { id: savedComment.id },
+      relations: ['user', 'campaign'],
+    });
+
+    if (!foundComment) {
+      throw new NotFoundException('Comment not found after creation');
+    }
+
+    return foundComment;
+  }
+
+  async getComments(campaignId: string): Promise<Comment[]> {
+    return this.commentRepository.find({
+      where: { campaignId },
+      relations: ['user'],
+      order: { createdAt: 'DESC' },
+    });
   }
 }

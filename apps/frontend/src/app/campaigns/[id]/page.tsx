@@ -2,273 +2,192 @@
 
 import * as React from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { getCampaignById, Campaign, formatCurrency } from '@/lib/graphql';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { ArrowLeft, Calendar, Target, TrendingUp, Clock } from 'lucide-react';
-import { getCampaignById, Campaign } from '@/lib/graphql';
-import { useUserRole } from '@/lib/useUserRole';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { CommentSection } from '@/components/comment-section';
+import { Loader2, ArrowLeft, Calendar, Target, Users } from 'lucide-react';
+import { format } from 'date-fns';
+
+import { Dialog, DialogContent, DialogTrigger, DialogTitle } from '@/components/ui/dialog';
 import { ContributionForm } from '@/components/contribution-form';
-
-function formatCurrency(amount: number) {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-  }).format(amount);
-}
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-  }).format(new Date(value));
-}
-
-function calculateProgress(current: number, goal: number) {
-  return Math.min((current / goal) * 100, 100);
-}
-
-const statusVariant: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
-  DRAFT: 'secondary',
-  SUBMITTED: 'outline',
-  APPROVED: 'default',
-  REJECTED: 'destructive',
-};
 
 export default function CampaignDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const { userId } = useUserRole();
-  const campaignId = params.id as string;
+  const id = params.id as string;
 
   const [campaign, setCampaign] = React.useState<Campaign | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
+  const [isBackingOpen, setIsBackingOpen] = React.useState(false);
 
-  const loadCampaign = React.useCallback(async () => {
+  const fetchCampaign = React.useCallback(async () => {
     try {
-      setLoading(true);
-      setError(null);
-      const result = await getCampaignById(campaignId);
-      setCampaign(result.campaign);
-
-      // Redirect creator to their dashboard view
-      if (userId && result.campaign.creator?.id === userId) {
-        router.replace(`/dashboard/campaigns/${campaignId}`);
-        return;
-      }
-    } catch (e) {
-      const message = e instanceof Error ? e.message : 'Failed to load campaign';
-      setError(message);
+      const data = await getCampaignById(id);
+      setCampaign(data.campaign);
+    } catch (err) {
+      console.error('Failed to load campaign:', err);
+      setError('Failed to load campaign details');
     } finally {
       setLoading(false);
     }
-  }, [campaignId, userId, router]);
+  }, [id]);
 
   React.useEffect(() => {
-    if (!campaignId) return;
-    loadCampaign();
-  }, [campaignId, loadCampaign]);
-
-  function handleContributionSuccess() {
-    // Reload campaign data to get updated funding amount
-    loadCampaign();
-  }
+    if (id) {
+      fetchCampaign();
+    }
+  }, [id, fetchCampaign]);
 
   if (loading) {
     return (
-      <main className="bg-muted/40 min-h-screen flex items-center justify-center">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle>Loading campaign...</CardTitle>
-            <CardDescription>Please wait</CardDescription>
-          </CardHeader>
-        </Card>
-      </main>
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
     );
   }
 
   if (error || !campaign) {
     return (
-      <main className="bg-muted/40 min-h-screen flex items-center justify-center">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle>Campaign not found</CardTitle>
-            <CardDescription>{error || 'The campaign you are looking for does not exist.'}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button onClick={() => router.push('/')}>Go Home</Button>
-          </CardContent>
-        </Card>
-      </main>
+      <div className="flex h-screen flex-col items-center justify-center gap-4">
+        <p className="text-destructive">{error || 'Campaign not found'}</p>
+        <Button onClick={() => router.back()}>Go Back</Button>
+      </div>
     );
   }
 
-  const progress = calculateProgress(campaign.currentAmount, campaign.goal);
-  const isApproved = campaign.status === 'APPROVED';
+  const progress = campaign.goal > 0
+    ? Math.round((campaign.currentAmount / campaign.goal) * 100)
+    : 0;
 
   return (
-    <main className="bg-muted/40 min-h-screen pb-16">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 pt-12 md:px-10">
-        {/* Back Button */}
-        <Button variant="ghost" onClick={() => router.back()} className="w-fit gap-2">
-          <ArrowLeft className="h-4 w-4" />
-          Back
-        </Button>
+    <main className="min-h-screen bg-background pb-12">
+      {/* Header / Navigation */}
+      <div className="border-b bg-card">
+        <div className="container mx-auto flex h-16 items-center px-4">
+          <Button variant="ghost" size="sm" onClick={() => router.back()} className="gap-2">
+            <ArrowLeft className="h-4 w-4" />
+            Back
+          </Button>
+        </div>
+      </div>
 
+      <div className="container mx-auto mt-8 max-w-5xl px-4">
         <div className="grid gap-8 lg:grid-cols-3">
-          {/* Main Campaign Content */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Campaign Header */}
+          {/* Main Content */}
+          <div className="lg:col-span-2 space-y-8">
             <div className="space-y-4">
-              <div className="flex items-center gap-3 flex-wrap">
+              <div className="flex items-center gap-2">
                 <Badge variant="secondary">{campaign.category}</Badge>
-                <Badge variant={statusVariant[campaign.status] || 'outline'}>
-                  {campaign.status}
-                </Badge>
+                <span className="text-sm text-muted-foreground">
+                  Created {format(new Date(campaign.createdAt), 'MMM d, yyyy')}
+                </span>
               </div>
-
-              <h1 className="text-3xl font-bold tracking-tight md:text-4xl">
-                {campaign.name}
-              </h1>
-
-              {campaign.creator && (
-                <p className="text-muted-foreground">
-                  by {campaign.creator.email}
-                </p>
-              )}
+              <h1 className="text-4xl font-bold tracking-tight">{campaign.name}</h1>
+              <p className="text-lg text-muted-foreground">{campaign.description}</p>
             </div>
 
-            {/* Funding Progress */}
-            <Card>
-              <CardContent className="pt-6">
-                <div className="space-y-4">
-                  <div className="flex items-baseline justify-between">
-                    <div>
-                      <span className="text-3xl font-bold text-primary">
-                        {formatCurrency(campaign.currentAmount)}
-                      </span>
-                      <span className="text-muted-foreground ml-2">
-                        raised of {formatCurrency(campaign.goal)} goal
-                      </span>
-                    </div>
-                    <span className="text-lg font-semibold text-primary">
-                      {progress.toFixed(0)}%
-                    </span>
-                  </div>
+            {/* Campaign Image Placeholder */}
+            <div className="aspect-video w-full rounded-xl bg-muted/50 flex items-center justify-center text-muted-foreground">
+              Campaign Image Placeholder
+            </div>
 
-                  <Progress value={progress} className="h-3" />
-
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div className="flex items-center gap-2">
-                      <Target className="h-4 w-4 text-muted-foreground" />
-                      <span>
-                        <span className="font-medium">{formatCurrency(campaign.goal - campaign.currentAmount)}</span>
-                        <span className="text-muted-foreground"> to go</span>
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-muted-foreground">
-                        Started {formatDate(campaign.createdAt)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Campaign Description */}
-            <Card>
-              <CardHeader>
-                <CardTitle>About this campaign</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="whitespace-pre-wrap text-foreground/90 leading-relaxed">
-                  {campaign.description}
-                </p>
-              </CardContent>
-            </Card>
-
-            {/* Campaign Details */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Campaign Details</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
-                      <Target className="h-5 w-5 text-muted-foreground" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Funding Goal</p>
-                      <p className="font-medium">{formatCurrency(campaign.goal)}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
-                      <TrendingUp className="h-5 w-5 text-muted-foreground" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Amount Raised</p>
-                      <p className="font-medium">{formatCurrency(campaign.currentAmount)}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
-                      <Clock className="h-5 w-5 text-muted-foreground" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Created</p>
-                      <p className="font-medium">{formatDate(campaign.createdAt)}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
-                      <Calendar className="h-5 w-5 text-muted-foreground" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Last Updated</p>
-                      <p className="font-medium">{formatDate(campaign.updatedAt)}</p>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            {/* Comments Section */}
+            <div className="pt-8 border-t">
+              <CommentSection campaignId={campaign.id} />
+            </div>
           </div>
 
-          {/* Sidebar - Contribution Form */}
-          <div className="lg:col-span-1">
-            <div className="sticky top-6 space-y-6">
-              {isApproved ? (
-                <ContributionForm
-                  campaignId={campaignId}
-                  campaignName={campaign.name}
-                  onSuccess={handleContributionSuccess}
-                />
-              ) : (
-                <Card className="border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/20">
-                  <CardHeader>
-                    <CardTitle className="text-amber-800 dark:text-amber-400">
-                      Campaign Not Available
-                    </CardTitle>
-                    <CardDescription>
-                      This campaign is currently not accepting contributions. It may be pending approval or has been paused.
-                    </CardDescription>
-                  </CardHeader>
-                </Card>
-              )}
-            </div>
+          {/* Sidebar */}
+          <div className="space-y-6">
+            <Card className="sticky top-8 border-border shadow-sm">
+              <CardHeader>
+                <CardTitle>Funding Progress</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="space-y-2">
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-3xl font-bold text-primary">
+                      {formatCurrency(campaign.currentAmount)}
+                    </span>
+                    <span className="text-sm text-muted-foreground">
+                      of {formatCurrency(campaign.goal)} goal
+                    </span>
+                  </div>
+                  <Progress value={progress} className="h-3" />
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>{progress}% funded</span>
+                    <span>{0} days left</span> {/* Placeholder for days left */}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 pt-4 border-t">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Users className="h-4 w-4" />
+                      <span className="text-xs font-medium uppercase">Backers</span>
+                    </div>
+                    <p className="text-xl font-semibold">0</p> {/* Placeholder for backers count */}
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Target className="h-4 w-4" />
+                      <span className="text-xs font-medium uppercase">Goal</span>
+                    </div>
+                    <p className="text-xl font-semibold">{formatCurrency(campaign.goal)}</p>
+                  </div>
+                </div>
+
+                <Dialog open={isBackingOpen} onOpenChange={setIsBackingOpen}>
+                  <DialogTrigger asChild>
+                    <Button className="w-full" size="lg">
+                      Back this Project
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[500px]">
+                    <DialogTitle className="sr-only">Back this Project</DialogTitle>
+                    <ContributionForm
+                      campaignId={campaign.id}
+                      campaignName={campaign.name}
+                      onSuccess={() => {
+                        // Wait a bit for the animation/server update
+                        setTimeout(() => {
+                          setIsBackingOpen(false);
+                          fetchCampaign();
+                        }, 1000);
+                      }}
+                    />
+                  </DialogContent>
+                </Dialog>
+
+                <p className="text-xs text-center text-muted-foreground">
+                  All or nothing. This project will only be funded if it reaches its goal.
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Created by</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
+                    {campaign.creator?.email.substring(0, 2).toUpperCase() || 'U'}
+                  </div>
+                  <div>
+                    <p className="font-medium">{campaign.creator?.email || 'Unknown User'}</p>
+                    <p className="text-xs text-muted-foreground">Campaign Creator</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
       </div>
     </main>
   );
 }
-

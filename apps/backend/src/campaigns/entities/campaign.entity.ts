@@ -1,6 +1,7 @@
 import { ObjectType, Field, registerEnumType } from '@nestjs/graphql';
-import { Column, Entity, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, ManyToOne } from "typeorm";
+import { Column, Entity, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, ManyToOne, OneToMany } from "typeorm";
 import { User } from '../../users/entities/user.entity';
+import { Comment } from './comment.entity';
 
 export enum CampaignStatus {
   DRAFT = 'DRAFT',
@@ -64,4 +65,8 @@ export class Campaign {
   @UpdateDateColumn()
   @Field(() => Date, { description: 'Last update date of the campaign' })
   updatedAt: Date;
+
+  @OneToMany(() => Comment, (comment) => comment.campaign)
+  @Field(() => [Comment], { description: 'Comments on the campaign', nullable: true })
+  comments: Comment[];
 }
