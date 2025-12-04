@@ -507,7 +507,7 @@ export default function DemoPage() {
                 <CardHeader>
                   <CardTitle>My Notifications</CardTitle>
                   <CardDescription>
-                    Your recent notifications from the microservice
+                    Your recent notifications
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
