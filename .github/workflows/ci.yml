@@ -52,7 +52,7 @@ jobs:
             --no-fund \
             --legacy-peer-deps \
             --verbose
-      
+
       - name: Setup NX early
         run: npx nx reset
 
@@ -107,7 +107,7 @@ jobs:
           FROM node:20-alpine
           WORKDIR /app
           COPY . .
-          RUN npm ci --production --no-audit --no-fund --network-timeout 600000
+          RUN npx npm@10 ci --prefer-offline --no-audit --no-fund --legacy-peer-deps --verbose
           EXPOSE 3000
           CMD ["node", "main.js"]
           EOF
