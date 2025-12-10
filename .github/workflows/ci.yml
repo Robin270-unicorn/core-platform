@@ -223,6 +223,13 @@ jobs:
             exit 1
           fi
 
+          # copy public static assets if present, otherwise create an empty public directory
+          if [ -d apps/frontend/public ]; then
+            cp -r apps/frontend/public frontend-image-context/public
+          else
+            mkdir -p frontend-image-context/public
+          fi
+
           # Create .env with required public variable
           cat > frontend-image-context/.env <<'EOF'
           NEXT_PUBLIC_GRAPHQL_URL=http://cwws0g0c4sckc8w0ckowkgc0.116.203.84.69.sslip.io/graphql
@@ -252,7 +259,7 @@ jobs:
           COPY --from=deps /app/node_modules ./node_modules
           COPY .next .next
           # copy public if exists (static assets)
-          COPY public ./public || true
+          COPY public ./public
           # copy .env to the image
           COPY .env .env
           EXPOSE 3000
