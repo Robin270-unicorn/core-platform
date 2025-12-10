@@ -86,20 +86,37 @@ jobs:
           fi
 
           # Prefer using root package.json + package-lock.json to reliably install workspace deps (includes @nestjs/jwt)
-          if [ -f package.json ] && [ -f package-lock.json ]; then
-            echo "Using root package.json + package-lock.json for docker install"
-            cp package.json backend-image-context/package.json
-            cp package-lock.json backend-image-context/package-lock.json
-          elif [ -f apps/backend/package.json ]; then
-            echo "Using apps/backend/package.json for docker install (no root lockfile)"
-            cp apps/backend/package.json backend-image-context/package.json
-            if [ -f apps/backend/package-lock.json ]; then
-              cp apps/backend/package-lock.json backend-image-context/package-lock.json
-            fi
-          else
-            echo "No package.json found in root or apps/backend; cannot build image"
-            exit 1
-          fi
+          # create merged package.json in image context (backend deps take precedence)
+          cat > backend-image-context/merge-package.js <<'JS'
+const fs = require('fs');
+const path = require('path');
+const rootPath = path.resolve('package.json');
+const backendPath = path.resolve('apps/backend/package.json');
+let root = null, backend = null;
+if (fs.existsSync(rootPath)) root = JSON.parse(fs.readFileSync(rootPath, 'utf8'));
+if (fs.existsSync(backendPath)) backend = JSON.parse(fs.readFileSync(backendPath, 'utf8'));
+if (!root && !backend) { console.error('No package.json found in root or apps/backend'); process.exit(1); }
+const out = backend ? JSON.parse(JSON.stringify(backend)) : { name: 'backend', version: '0.0.0', private: true, dependencies: {} };
+out.dependencies = out.dependencies || {};
+if (root && root.dependencies) {
+  for (const k of Object.keys(root.dependencies)) {
+    if (!(k in out.dependencies)) out.dependencies[k] = root.dependencies[k];
+  }
+}
+if (root && root.peerDependencies) {
+  out.peerDependencies = out.peerDependencies || {};
+  for (const k of Object.keys(root.peerDependencies)) {
+    if (!(k in out.peerDependencies)) out.peerDependencies[k] = root.peerDependencies[k];
+  }
+}
+fs.writeFileSync('backend-image-context/package.json', JSON.stringify(out, null, 2));
+console.log('Wrote backend-image-context/package.json');
+JS
+          node backend-image-context/merge-package.js
+          rm backend-image-context/merge-package.js || true
+
+          # do NOT copy package-lock.json into the image context (we'll install from merged package.json inside the image)
+          echo "Not copying package-lock.json into backend-image-context to avoid mismatch with merged package.json"
 
           # package-lock.json is already handled above; if none present, docker will run npm install
           
@@ -136,17 +153,24 @@ jobs:
       - name: Create Dockerfile for backend image (local context)
         run: |
           cat > backend-image-context/Dockerfile <<'EOF'
-          FROM node:20-alpine
+          #################################################################
+          # Multi-stage Dockerfile
+          # Stage 1: deps - install production dependencies
+          #################################################################
+          FROM node:20-alpine AS deps
           WORKDIR /app
-          # copy package manifests (for runtime metadata)
           COPY package.json package-lock.json* ./
-          # If package-lock.json is present use `npm ci` for reproducible install, otherwise fall back to npm install
-          RUN if [ -f package-lock.json ]; then \
-                npm ci --prefer-offline --no-audit --no-fund --legacy-peer-deps --production; \
-              else \
-                npm install --omit=dev --legacy-peer-deps --no-audit --no-fund; \
-              fi
-          # copy built output
+          # install production dependencies based on merged package.json (avoid lockfile mismatch by using npm install)
+          RUN npm install --omit=dev --legacy-peer-deps --no-audit --no-fund --production
+
+          #################################################################
+          # Stage final: runtime image with only production deps + built dist
+          #################################################################
+          FROM node:20-alpine AS runtime
+          WORKDIR /app
+          # copy production node_modules from deps stage
+          COPY --from=deps /app/node_modules ./node_modules
+          # copy dist built on the runner into image
           COPY dist ./dist
           EXPOSE 3000
           CMD ["node", "dist/main.js"]
@@ -175,6 +199,18 @@ jobs:
           docker images --digests || true
           # cleanup unused builder data
           docker buildx prune --all --force || true
+
+      - name: Smoke-test pushed image (requires successful push)
+        run: |
+          set -e
+          IMAGE=ghcr.io/${{ github.repository_owner }}/backend:latest
+          echo "Pulling $IMAGE"
+          docker pull "$IMAGE"
+          echo "Running runtime require test for @nestjs/jwt"
+          # show node_modules and top-level prod deps
+          docker run --rm "$IMAGE" sh -lc "echo '--- ls /app/node_modules (top entries)'; ls -la /app/node_modules | head -n 200 || true; echo '--- npm ls --prod --depth=0'; npm ls --prod --depth=0 || true; echo '--- require.resolve @nestjs/jwt'; node -e \"try{console.log(require.resolve('\\\@nestjs/jwt'))}catch(e){console.error(e.message); process.exit(2)}\""
+        env:
+          DOCKER_BUILDKIT: 1
 
       - name: Notify if there are affected projects
         if: ${{ steps.derivative.outputs.affected == 'true' }}
