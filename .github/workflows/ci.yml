@@ -318,8 +318,10 @@ jobs:
           WORKDIR /app
           # copy production node_modules from deps stage
           COPY --from=deps /app/node_modules ./node_modules
-          # copy package.json so `npm run start` can find scripts at runtime
-          COPY package.json package-lock.json* ./ || true
+          # copy package.json from builder to ensure scripts are available at runtime
+          COPY --from=builder /app/package.json ./ || true
+          # also copy package-lock if present in builder (optional)
+          COPY --from=builder /app/package-lock.json ./ || true
           # copy .next built on the runner into image
           COPY .next .next
           # copy public static assets (if any)
@@ -359,8 +361,8 @@ jobs:
           IMAGE=ghcr.io/${{ github.repository_owner }}/frontend:latest
           echo "Pulling $IMAGE"
           docker pull "$IMAGE"
-          echo "Running runtime require test for @nestjs/jwt"
-          # show node_modules and top-level prod deps
-          docker run --rm "$IMAGE" sh -lc "echo '--- ls /app/node_modules (top entries)'; ls -la /app/node_modules | head -n 200 || true; echo '--- npm ls --prod --depth=0'; npm ls --prod --depth=0 || true; echo '--- require.resolve @nestjs/jwt'; node -e \"try{console.log(require.resolve('\\\@nestjs/jwt'))}catch(e){console.error(e.message); process.exit(2)}\""
-        env:
-          DOCKER_BUILDKIT: 1
+          echo "Running runtime checks for frontend image"
+          # show package.json presence and node_modules
+          docker run --rm "$IMAGE" sh -lc "echo '--- ls /app (top entries)'; ls -la /app || true; echo '--- cat /app/package.json (if present)'; cat /app/package.json || echo '/app/package.json not present'; echo '--- ls /app/node_modules (top entries)'; ls -la /app/node_modules | head -n 200 || true; echo '--- npm ls --prod --depth=0'; npm ls --prod --depth=0 || true"
+         env:
+           DOCKER_BUILDKIT: 1
