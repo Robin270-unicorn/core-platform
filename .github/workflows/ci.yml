@@ -205,36 +205,29 @@ jobs:
           rm -rf frontend-image-context
           mkdir -p frontend-image-context
 
-          # Copy root package.json and package-lock.json (essential for npm ci)
-          cp package.json frontend-image-context/
-          [ -f package-lock.json ] && cp package-lock.json frontend-image-context/ || true
-
-          # Copy root tsconfig and config files that next.config.js might need
-          cp tsconfig.base.json frontend-image-context/ || true
-          cp tsconfig.json frontend-image-context/ || true
-          cp nx.json frontend-image-context/ || true
-
-          # Copy frontend app source (excluding .next and node_modules)
-          mkdir -p frontend-image-context/apps/frontend
+          # Copy entire repo structure to preserve NX workspace structure
+          # This is needed because next.config.js uses @nx/next plugins
+          cp package.json package-lock.json* frontend-image-context/ 2>/dev/null || true
+          cp tsconfig.base.json tsconfig.json nx.json frontend-image-context/ 2>/dev/null || true
+          cp eslint.config.mjs frontend-image-context/ 2>/dev/null || true
+          
+          # Copy entire apps directory structure
+          mkdir -p frontend-image-context/apps
           rsync -a \
             --exclude 'node_modules' \
             --exclude '.next' \
             --exclude 'dist' \
-            apps/frontend/ frontend-image-context/apps/frontend/
+            apps/ frontend-image-context/apps/
 
           # Ensure public dir exists
           [ -d frontend-image-context/apps/frontend/public ] || mkdir -p frontend-image-context/apps/frontend/public
-
-          # Copy contents of apps/frontend to root of context for easier access in Docker
-          cp -r frontend-image-context/apps/frontend/* frontend-image-context/ || true
-          rm -rf frontend-image-context/apps
 
           echo "frontend-image-context contents:"
           ls -la frontend-image-context
           
           echo "Verifying critical files:"
           test -f frontend-image-context/package.json && echo "✓ package.json present" || echo "✗ package.json missing"
-          test -f frontend-image-context/next.config.js && echo "✓ next.config.js present" || echo "✗ next.config.js missing"
+          test -f frontend-image-context/apps/frontend/next.config.js && echo "✓ next.config.js present" || echo "✗ next.config.js missing"
           test -f frontend-image-context/tsconfig.base.json && echo "✓ tsconfig.base.json present" || echo "✗ tsconfig.base.json missing"
 
       - name: Create Dockerfile for frontend image (local)
@@ -243,24 +236,27 @@ jobs:
           FROM node:20-alpine
           WORKDIR /app
           
-          # Copy everything
+          # Copy entire workspace
           COPY . ./
           
-          # Install all dependencies
+          # Install all dependencies from root package.json
           RUN if [ -f package-lock.json ]; then \
             npm ci --legacy-peer-deps --no-audit --no-fund; \
           else \
             npm install --legacy-peer-deps --no-audit --no-fund; \
           fi
           
-          # Explicitly install @nx/next if not already present
+          # Ensure @nx/next is installed
           RUN npm list @nx/next > /dev/null 2>&1 || npm install @nx/next@22.1.3 --legacy-peer-deps --no-audit --no-fund
           
-          # Always build .next (remove prebuilt if exists to force rebuild)
-          RUN rm -rf .next && npm run build
+          # Build frontend - go to apps/frontend and run npm run build (which runs 'next build')
+          RUN cd apps/frontend && npm run build
           
           # Verify BUILD_ID exists
-          RUN test -f .next/BUILD_ID || (echo "ERROR: BUILD_ID not found after build" && exit 1)
+          RUN test -f apps/frontend/.next/BUILD_ID || (echo "ERROR: BUILD_ID not found after build" && ls -la apps/frontend/.next 2>/dev/null && exit 1)
+          
+          # Set working directory to frontend app for runtime
+          WORKDIR /app/apps/frontend
           
           EXPOSE 3000
           CMD ["npm", "run", "start"]
@@ -297,7 +293,6 @@ jobs:
           echo "Pulling $IMAGE"
           docker pull "$IMAGE"
           echo "Running runtime checks for frontend image"
-          # show package.json presence and node_modules
-          docker run --rm "$IMAGE" sh -c "echo '--- ls /app (top entries)'; ls -la /app || true; echo '--- cat /app/package.json (if present)'; cat /app/package.json 2>/dev/null && echo 'SUCCESS: package.json is present' || echo 'ERROR: /app/package.json not found'; echo '--- Check for .next'; ls -la /app/.next 2>/dev/null && echo 'SUCCESS: .next directory present' || echo 'WARNING: .next not found'; echo '--- Check npm ls'; npm ls --prod --depth=0 2>/dev/null || true"
+          docker run --rm "$IMAGE" sh -c "echo '--- pwd'; pwd; echo '--- ls /app/apps/frontend'; ls -la /app/apps/frontend; echo '--- Check .next'; ls -la .next 2>/dev/null && echo 'SUCCESS: .next directory present' || echo 'ERROR: .next not found'; echo '--- Check BUILD_ID'; cat .next/BUILD_ID 2>/dev/null && echo 'SUCCESS: BUILD_ID exists' || echo 'ERROR: BUILD_ID missing'; echo '--- Check package.json'; cat package.json | head -5 || echo 'ERROR: no package.json'"
         env:
           DOCKER_BUILDKIT: 1
