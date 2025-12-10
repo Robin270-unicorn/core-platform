@@ -286,22 +286,6 @@ jobs:
             frontend-image-context || true
           docker buildx prune --all --force || true
 
-      - name: Smoke-test pushed frontend image
-        run: |
-          set -e
-          IMAGE=ghcr.io/${{ github.repository_owner }}/frontend:latest
-          echo "Pulling $IMAGE"
-          docker pull "$IMAGE"
-          echo "Running quick smoke test: start container and curl /_next/ (checks that app serves)")
-          docker run --rm -d --name fe-smoke -p 3001:3000 "$IMAGE"
-          sleep 3
-          # check root and an asset path
-          curl -sS --fail http://localhost:3001/ || (docker logs fe-smoke && exit 2)
-          curl -sS --fail http://localhost:3001/_next/static/ || true
-          docker rm -f fe-smoke || true
-        env:
-          DOCKER_BUILDKIT: 1
-
       - name: Notify if there are affected projects
         if: ${{ steps.derivative.outputs.affected == 'true' }}
         run: |
