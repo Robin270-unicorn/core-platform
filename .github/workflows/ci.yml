@@ -219,6 +219,14 @@ jobs:
             --exclude 'dist' \
             apps/ frontend-image-context/apps/
 
+          # Copy prebuilt .next from runner if present (from npm run build on runner)
+          if [ -d apps/frontend/.next ]; then
+            echo "Copying prebuilt .next from runner to save build time"
+            cp -r apps/frontend/.next frontend-image-context/apps/frontend/.next
+          else
+            echo "No prebuilt .next from runner - will build inside Docker"
+          fi
+
           # Ensure public dir exists
           [ -d frontend-image-context/apps/frontend/public ] || mkdir -p frontend-image-context/apps/frontend/public
 
@@ -229,6 +237,13 @@ jobs:
           test -f frontend-image-context/package.json && echo "✓ package.json present" || echo "✗ package.json missing"
           test -f frontend-image-context/apps/frontend/next.config.js && echo "✓ next.config.js present" || echo "✗ next.config.js missing"
           test -f frontend-image-context/tsconfig.base.json && echo "✓ tsconfig.base.json present" || echo "✗ tsconfig.base.json missing"
+          
+          if [ -d frontend-image-context/apps/frontend/.next ]; then
+            echo "✓ prebuilt .next present"
+            if [ -f frontend-image-context/apps/frontend/.next/BUILD_ID ]; then
+              echo "✓ BUILD_ID present in prebuilt .next"
+            fi
+          fi
 
       - name: Create Dockerfile for frontend image (local)
         run: |
@@ -249,11 +264,16 @@ jobs:
           # Ensure @nx/next is installed
           RUN npm list @nx/next > /dev/null 2>&1 || npm install @nx/next@22.1.3 --legacy-peer-deps --no-audit --no-fund
           
-          # Build frontend - go to apps/frontend and run npm run build (which runs 'next build')
-          RUN cd apps/frontend && npm run build
+          # Check if .next already exists (prebuilt from runner)
+          RUN if [ -d apps/frontend/.next ] && [ -f apps/frontend/.next/BUILD_ID ]; then \
+            echo "✓ Using prebuilt .next from context"; \
+          else \
+            echo "Building .next inside Docker..."; \
+            cd apps/frontend && npm run build; \
+          fi
           
-          # Verify BUILD_ID exists
-          RUN test -f apps/frontend/.next/BUILD_ID || (echo "ERROR: BUILD_ID not found after build" && ls -la apps/frontend/.next 2>/dev/null && exit 1)
+          # Verify BUILD_ID exists (required by next start)
+          RUN test -f apps/frontend/.next/BUILD_ID || (echo "ERROR: BUILD_ID not found!" && ls -la apps/frontend/.next && exit 1)
           
           # Set working directory to frontend app for runtime
           WORKDIR /app/apps/frontend
@@ -293,6 +313,14 @@ jobs:
           echo "Pulling $IMAGE"
           docker pull "$IMAGE"
           echo "Running runtime checks for frontend image"
-          docker run --rm "$IMAGE" sh -c "echo '--- pwd'; pwd; echo '--- ls /app/apps/frontend'; ls -la /app/apps/frontend; echo '--- Check .next'; ls -la .next 2>/dev/null && echo 'SUCCESS: .next directory present' || echo 'ERROR: .next not found'; echo '--- Check BUILD_ID'; cat .next/BUILD_ID 2>/dev/null && echo 'SUCCESS: BUILD_ID exists' || echo 'ERROR: BUILD_ID missing'; echo '--- Check package.json'; cat package.json | head -5 || echo 'ERROR: no package.json'"
+          docker run --rm "$IMAGE" sh -c "echo '=== Runtime diagnostics ===' && \
+            echo 'Current directory:' && pwd && \
+            echo 'Directory contents:' && ls -la && \
+            echo '.next directory:' && ls -la .next 2>/dev/null || echo 'NO .next directory' && \
+            echo 'BUILD_ID contents:' && cat .next/BUILD_ID 2>/dev/null && echo '(BUILD_ID OK)' || echo 'ERROR: BUILD_ID missing' && \
+            echo 'package.json:' && cat package.json | head -10 && \
+            echo 'Node version:' && node --version && \
+            echo 'npm version:' && npm --version && \
+            echo '--- Test npm ls ---' && npm ls --prod --depth=0 2>/dev/null | head -20"
         env:
           DOCKER_BUILDKIT: 1
