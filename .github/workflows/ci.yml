@@ -71,6 +71,9 @@ jobs:
       - name: Build frontend explicitly
         run: npx nx build frontend --configuration=ci
 
+      - name: "Diagnostic: show frontend .next after nx build"
+        run: "echo 'Listing apps/frontend/.next (if present)'; if [ -d apps/frontend/.next ]; then ls -la apps/frontend/.next || true; if [ -f apps/frontend/.next/BUILD_ID ]; then echo 'BUILD_ID file contents:'; cat apps/frontend/.next/BUILD_ID || true; else echo 'No BUILD_ID in apps/frontend/.next'; fi; else echo 'No apps/frontend/.next directory found'; fi"
+
       - name: Prepare backend image context (local)
         run: |
           set -e
@@ -213,16 +216,19 @@ jobs:
 
           # copy package.json (prefer app package.json, fall back to root)
           if [ -f apps/frontend/package.json ]; then
-            cp apps/frontend/package.json frontend-image-context/package.json
+            cp apps/frontend/package.json frontend-image-context/app.package.json
           elif [ -f package.json ]; then
-            cp package.json frontend-image-context/package.json
+            cp package.json frontend-image-context/app.package.json
           else
             echo "No package.json found for frontend image context"
             exit 1
           fi
 
-          # generate a package-lock.json matching the app package.json so Docker can install exact prod deps
-          # use --package-lock-only to avoid installing node_modules on the runner
+          # create a merged package.json that includes dependencies and devDependencies from root and app
+          node -e "const fs=require('fs');const rootPath='package.json';const appPath='apps/frontend/package.json';const root=fs.existsSync(rootPath)?JSON.parse(fs.readFileSync(rootPath,'utf8')):null;const app=fs.existsSync(appPath)?JSON.parse(fs.readFileSync(appPath,'utf8')):null;if(!root && !app){console.error('No package.json found in root or apps/frontend');process.exit(1);}const out=app?JSON.parse(JSON.stringify(app)):{name:'frontend',version:'0.0.0',private:true,dependencies:{}};out.dependencies=out.dependencies||{};out.devDependencies=out.devDependencies||{};if(root){['dependencies','devDependencies','peerDependencies'].forEach(k=>{if(root[k]){out[k]=out[k]||{};for(const p of Object.keys(root[k])){if(!(p in out[k]))out[k]=out[k]||{},out[k][p]=root[k][p]} }}; // ensure @nx/next is available for next.config.js evaluation (comes from root devDependencies)
+          try{if(root&&root.devDependencies&&root.devDependencies['@nx/next']){out.devDependencies['@nx/next']=root.devDependencies['@nx/next'];}}catch(e){};fs.writeFileSync('frontend-image-context/package.json',JSON.stringify(out,null,2));console.log('Wrote frontend-image-context/package.json');"
+
+          # generate a package-lock.json matching the merged package.json so Docker can install exact deps
           (cd frontend-image-context && npm install --package-lock-only --legacy-peer-deps --no-audit --no-fund) || echo 'npm install --package-lock-only failed (non-fatal)'
 
           # copy public static assets if present, otherwise create an empty public directory
@@ -272,22 +278,32 @@ jobs:
             else \
               npm install --legacy-peer-deps --no-audit --no-fund; \
             fi; \
+            # Ensure @nx/next is installed so next.config.js can require it during build (install unconditionally to avoid edge cases)
+            echo "Installing @nx/next to ensure next.config.js can resolve it"; \
+            npm install --legacy-peer_deps --no-audit --no-fund @nx/next@^22.1.3 || true; \
             npm run build; \
           fi
 
-          # Deps stage: install production deps only (smaller)
+          #################################################################
+          # Stage deps: install production dependencies
+          #################################################################
           FROM node:20-alpine AS deps
           WORKDIR /app
+          # copy package.json and lockfile from builder
           COPY package.json package-lock.json* ./
+          # install production dependencies
           RUN if [ -f package-lock.json ]; then \
             npm ci --omit=dev --legacy-peer-deps --no-audit --no-fund --production; \
           else \
             npm install --omit=dev --legacy-peer-deps --no-audit --no-fund --production; \
           fi
 
-          # Runtime stage: copy production node_modules and built .next
+          #################################################################
+          # Stage final: runtime image with only production deps + built .next
+          #################################################################
           FROM node:20-alpine AS runtime
           WORKDIR /app
+          # copy production node_modules from deps stage
           COPY --from=deps /app/node_modules ./node_modules
           # copy the built .next from builder
           COPY --from=builder /app/.next ./.next
@@ -298,7 +314,7 @@ jobs:
           CMD ["npx", "next", "start", "-p", "3000"]
           EOF
 
-      - name: Login to GHCR for frontend
+      - name: Login to GHCR
         uses: docker/login-action@v2
         with:
           registry: ghcr.io
@@ -318,9 +334,14 @@ jobs:
             frontend-image-context
           docker buildx prune --all --force || true
 
-      - name: Notify if there are affected projects
-        if: ${{ steps.derivative.outputs.affected == 'true' }}
+      - name: Smoke-test pushed frontend image (requires successful push)
         run: |
-          echo "There are affected projects."
-          echo "Run the following command to see the affected projects:"
-          echo "npx nx affected --base=${{ github.event.before }} --head=${{ github.sha }}"
+          set -e
+          IMAGE=ghcr.io/${{ github.repository_owner }}/frontend:latest
+          echo "Pulling $IMAGE"
+          docker pull "$IMAGE"
+          echo "Running runtime require test for @nestjs/jwt"
+          # show node_modules and top-level prod deps
+          docker run --rm "$IMAGE" sh -lc "echo '--- ls /app/node_modules (top entries)'; ls -la /app/node_modules | head -n 200 || true; echo '--- npm ls --prod --depth=0'; npm ls --prod --depth=0 || true; echo '--- require.resolve @nestjs/jwt'; node -e \"try{console.log(require.resolve('\\\@nestjs/jwt'))}catch(e){console.error(e.message); process.exit(2)}\""
+        env:
+          DOCKER_BUILDKIT: 1
