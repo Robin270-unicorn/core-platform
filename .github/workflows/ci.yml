@@ -205,9 +205,14 @@ jobs:
           rm -rf frontend-image-context
           mkdir -p frontend-image-context
 
-          # Copy root package.json and package-lock.json
+          # Copy root package.json and package-lock.json (essential for npm ci)
           cp package.json frontend-image-context/
           [ -f package-lock.json ] && cp package-lock.json frontend-image-context/ || true
+
+          # Copy root tsconfig and config files that next.config.js might need
+          cp tsconfig.base.json frontend-image-context/ || true
+          cp tsconfig.json frontend-image-context/ || true
+          cp nx.json frontend-image-context/ || true
 
           # Copy frontend app source
           cp -r apps/frontend/* frontend-image-context/ || true
@@ -221,8 +226,10 @@ jobs:
           echo "frontend-image-context contents:"
           ls -la frontend-image-context
           
-          echo "Verifying package.json:"
+          echo "Verifying critical files:"
           test -f frontend-image-context/package.json && echo "✓ package.json present" || echo "✗ package.json missing"
+          test -f frontend-image-context/next.config.js && echo "✓ next.config.js present" || echo "✗ next.config.js missing"
+          test -f frontend-image-context/tsconfig.base.json && echo "✓ tsconfig.base.json present" || echo "✗ tsconfig.base.json missing"
 
       - name: Create Dockerfile for frontend image (local)
         run: |
@@ -239,6 +246,9 @@ jobs:
           else \
             npm install --legacy-peer-deps --no-audit --no-fund; \
           fi
+          
+          # Explicitly install @nx/next if not already present
+          RUN npm list @nx/next > /dev/null 2>&1 || npm install @nx/next@22.1.3 --legacy-peer-deps --no-audit --no-fund
           
           # Build if .next doesn't exist
           RUN if [ ! -d .next ]; then \
