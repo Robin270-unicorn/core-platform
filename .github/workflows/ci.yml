@@ -205,97 +205,48 @@ jobs:
           rm -rf frontend-image-context
           mkdir -p frontend-image-context
 
-          # Copy root package.json + lock file for dependency resolution
-          if [ -f package.json ]; then
-            cp package.json frontend-image-context/package.json
-          fi
-          if [ -f package-lock.json ]; then
-            cp package-lock.json frontend-image-context/package-lock.json
-          fi
+          # Copy root package.json and package-lock.json
+          cp package.json frontend-image-context/
+          [ -f package-lock.json ] && cp package-lock.json frontend-image-context/ || true
 
-          # Copy prebuilt .next from the NX build output if present
-          if [ -d apps/frontend/.next ]; then
-            echo "Copying prebuilt .next"
-            cp -r apps/frontend/.next frontend-image-context/.next
-          else
-            echo "No prebuilt .next found - will build inside Docker"
-          fi
+          # Copy frontend app source
+          cp -r apps/frontend/* frontend-image-context/ || true
 
-          # Copy frontend app source (excluding node_modules and dist)
-          echo "Copying frontend app source"
-          mkdir -p frontend-image-context/app
-          rsync -a \
-            --exclude 'node_modules' \
-            --exclude 'dist' \
-            --exclude '.next' \
-            apps/frontend/ frontend-image-context/app/
+          # Copy prebuilt .next if present
+          [ -d apps/frontend/.next ] && cp -r apps/frontend/.next frontend-image-context/ || true
 
-          # Copy public assets if present
-          if [ -d apps/frontend/public ]; then
-            cp -r apps/frontend/public frontend-image-context/public
-          else
-            mkdir -p frontend-image-context/public
-          fi
+          # Ensure public dir exists
+          [ -d frontend-image-context/public ] || mkdir -p frontend-image-context/public
 
           echo "frontend-image-context contents:"
           ls -la frontend-image-context
-          echo "package.json check:"
+          
+          echo "Verifying package.json:"
           test -f frontend-image-context/package.json && echo "✓ package.json present" || echo "✗ package.json missing"
 
       - name: Create Dockerfile for frontend image (local)
         run: |
           cat > frontend-image-context/Dockerfile <<'EOF'
-          #################################################################
-          # Multi-stage Dockerfile for Next.js frontend
-          # Stage 1: builder - install all deps and build
-          # Stage 2: runtime - install prod deps only and run app
-          #################################################################
-
-          FROM node:20-alpine AS builder
+          FROM node:20-alpine
           WORKDIR /app
           
-          # copy package files
-          COPY package.json package-lock.json* ./
+          # Copy everything
+          COPY . ./
           
-          # install all dependencies (including dev)
+          # Install all dependencies
           RUN if [ -f package-lock.json ]; then \
             npm ci --legacy-peer-deps --no-audit --no-fund; \
           else \
             npm install --legacy-peer-deps --no-audit --no-fund; \
           fi
-
-          # copy source code and built .next if present
-          COPY app/ ./
-          COPY .next .next || true
-          COPY public ./public || true
           
-          # if .next doesn't exist, build it
+          # Build if .next doesn't exist
           RUN if [ ! -d .next ]; then \
-            echo "Building Next.js app..."; \
             npm run build; \
-          else \
-            echo "Using prebuilt .next from context"; \
-          fi
-
-          #################################################################
-          FROM node:20-alpine AS runtime
-          WORKDIR /app
-          
-          # copy package files for npm start to work
-          COPY package.json package-lock.json* ./
-          
-          # install production dependencies only
-          RUN if [ -f package-lock.json ]; then \
-            npm ci --omit=dev --legacy-peer-deps --no-audit --no-fund; \
-          else \
-            npm install --omit=dev --legacy-peer-deps --no-audit --no-fund; \
           fi
           
-          # copy built .next from builder
-          COPY --from=builder /app/.next ./.next
-          
-          # copy public assets
-          COPY --from=builder /app/public ./public || true
+          # Remove dev dependencies
+          RUN npm prune --omit=dev --legacy-peer-deps --no-audit --no-fund
           
           EXPOSE 3000
           CMD ["npm", "run", "start"]
