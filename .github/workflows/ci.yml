@@ -164,37 +164,17 @@ jobs:
           set -e
           docker buildx create --use --name mybuilder --driver docker-container --bootstrap || true
           docker buildx inspect --bootstrap
-          # build the backend image
+          # build & push the backend image directly to GHCR (avoids a separate push step)
           docker buildx build \
             --platform linux/amd64 \
             --tag ghcr.io/${{ github.repository_owner }}/backend:latest \
-            --load \
-            backend-image-context || true
-          # for testing, also build a "dev" variant with latest node and no cache
-          docker buildx build \
-            --platform linux/amd64 \
             --tag ghcr.io/${{ github.repository_owner }}/backend:dev \
-            --build-arg NODE_VERSION=latest \
-            --no-cache \
-            --load \
+            --push \
             backend-image-context || true
-          # show images
+          # show images (local builder cache)
           docker images --digests || true
           # cleanup unused builder data
           docker buildx prune --all --force || true
-
-      - name: Upload backend image to GHCR
-        run: |
-          echo "GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}" >> $GITHUB_ENV
-          echo "IMAGE_NAME=ghcr.io/${{ github.repository_owner }}/backend" >> $GITHUB_ENV
-          echo "IMAGE_TAG=latest" >> $GITHUB_ENV
-          echo "IMAGE_DEV_TAG=dev" >> $GITHUB_ENV
-          echo "IMAGE_REPOSITORY=${{ github.repository }}" >> $GITHUB_ENV
-          echo "IMAGE_PATH=backend-image-context" >> $GITHUB_ENV
-          echo "NX_CLOUD_AUTH_TOKEN=${{ secrets.NX_CLOUD_AUTH_TOKEN }}" >> $GITHUB_ENV
-          echo "DOCKER_BUILDKIT=1" >> $GITHUB_ENV
-          docker push $IMAGE_NAME:$IMAGE_TAG || true
-          docker push $IMAGE_NAME:$IMAGE_DEV_TAG || true
 
       - name: Notify if there are affected projects
         if: ${{ steps.derivative.outputs.affected == 'true' }}
