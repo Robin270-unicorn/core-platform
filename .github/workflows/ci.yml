@@ -291,7 +291,7 @@ jobs:
             fi; \
             # Ensure @nx/next is installed so next.config.js can require it during build (install unconditionally to avoid edge cases)
             echo "Installing @nx/next to ensure next.config.js can resolve it"; \
-            npm install --legacy-peer-deps --no-audit --no-fund @nx/next@^22.1.3 || true; \
+            npm install --legacy-peer_deps --no-audit --no-fund @nx/next@^22.1.3 || true; \
             # make tsconfig.json extend the local tsconfig.base.json so TypeScript can find it inside the container
             if [ -f tsconfig.json ]; then sed -i 's#\.\./\.\./tsconfig.base.json#./tsconfig.base.json#g' tsconfig.json || true; fi; \
             npm run build; \
@@ -318,6 +318,8 @@ jobs:
           WORKDIR /app
           # copy production node_modules from deps stage
           COPY --from=deps /app/node_modules ./node_modules
+          # copy package.json so `npm run start` can find scripts at runtime
+          COPY package.json package-lock.json* ./ || true
           # copy .next built on the runner into image
           COPY .next .next
           # copy public static assets (if any)
