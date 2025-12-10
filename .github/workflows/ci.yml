@@ -224,6 +224,14 @@ jobs:
             exit 1
           fi
 
+          # copy root tsconfig.base.json so Next/TypeScript inside the builder can resolve extends
+          if [ -f tsconfig.base.json ]; then
+            cp tsconfig.base.json frontend-image-context/tsconfig.base.json
+            echo "Copied tsconfig.base.json into frontend-image-context"
+          else
+            echo "No root tsconfig.base.json found; TypeScript build inside Docker may fail if project expects it"
+          fi
+
           # create a merged package.json that includes dependencies and devDependencies from root and app
           node -e "const fs=require('fs');const rootPath='package.json';const appPath='apps/frontend/package.json';const root=fs.existsSync(rootPath)?JSON.parse(fs.readFileSync(rootPath,'utf8')):null;const app=fs.existsSync(appPath)?JSON.parse(fs.readFileSync(appPath,'utf8')):null;if(!root && !app){console.error('No package.json found in root or apps/frontend');process.exit(1);}const out=app?JSON.parse(JSON.stringify(app)):{name:'frontend',version:'0.0.0',private:true,dependencies:{}};out.dependencies=out.dependencies||{};out.devDependencies=out.devDependencies||{};if(root){['dependencies','devDependencies','peerDependencies'].forEach(k=>{if(root[k]){out[k]=out[k]||{};Object.keys(root[k]).forEach(p=>{if(!(p in out[k])){out[k][p]=root[k][p]}})}});}if(root && root.devDependencies && root.devDependencies['@nx/next']){out.devDependencies['@nx/next']=root.devDependencies['@nx/next'];}fs.writeFileSync('frontend-image-context/package.json',JSON.stringify(out,null,2));console.log('Wrote frontend-image-context/package.json');"
 
@@ -264,6 +272,10 @@ jobs:
           WORKDIR /app
           # copy package.json and lockfile for the app
           COPY package.json package-lock.json* ./
+          # ensure tsconfig.base.json from repo is available to TypeScript during build
+          COPY tsconfig.base.json /tsconfig.base.json
+          # also copy tsconfig.base.json into app dir so tsconfig.json can extend it relatively
+          COPY tsconfig.base.json ./tsconfig.base.json
           # copy app source into builder
           COPY app/ ./
           # copy prebuilt .next from context if present (allows using runner build output)
@@ -279,7 +291,9 @@ jobs:
             fi; \
             # Ensure @nx/next is installed so next.config.js can require it during build (install unconditionally to avoid edge cases)
             echo "Installing @nx/next to ensure next.config.js can resolve it"; \
-            npm install --legacy-peer_deps --no-audit --no-fund @nx/next@^22.1.3 || true; \
+            npm install --legacy-peer-deps --no-audit --no-fund @nx/next@^22.1.3 || true; \
+            # make tsconfig.json extend the local tsconfig.base.json so TypeScript can find it inside the container
+            if [ -f tsconfig.json ]; then sed -i 's#\.\./\.\./tsconfig.base.json#./tsconfig.base.json#g' tsconfig.json || true; fi; \
             npm run build; \
           fi
 
@@ -290,7 +304,7 @@ jobs:
           WORKDIR /app
           # copy package.json and lockfile from builder
           COPY package.json package-lock.json* ./
-          # install production dependencies
+          # install production dependencies based on merged package.json and lockfile
           RUN if [ -f package-lock.json ]; then \
             npm ci --omit=dev --legacy-peer-deps --no-audit --no-fund --production; \
           else \
@@ -304,13 +318,12 @@ jobs:
           WORKDIR /app
           # copy production node_modules from deps stage
           COPY --from=deps /app/node_modules ./node_modules
-          # copy the built .next from builder
-          COPY --from=builder /app/.next ./.next
-          # copy public and env
+          # copy .next built on the runner into image
+          COPY .next .next
+          # copy public static assets (if any)
           COPY public ./public
-          COPY .env .env
           EXPOSE 3000
-          CMD ["npx", "next", "start", "-p", "3000"]
+          CMD ["node", "dist/main.js"]
           EOF
 
       - name: Login to GHCR
@@ -323,14 +336,18 @@ jobs:
       - name: Build frontend image (local)
         run: |
           set -e
-          docker buildx create --use --name mybuilder-frontend --driver docker-container --bootstrap || true
+          docker buildx create --use --name mybuilder --driver docker-container --bootstrap || true
           docker buildx inspect --bootstrap
+          # build & push the frontend image directly to GHCR (avoids a separate push step)
           docker buildx build \
             --platform linux/amd64 \
             --tag ghcr.io/${{ github.repository_owner }}/frontend:latest \
             --tag ghcr.io/${{ github.repository_owner }}/frontend:dev \
             --push \
-            frontend-image-context
+            frontend-image-context || true
+          # show images (local builder cache)
+          docker images --digests || true
+          # cleanup unused builder data
           docker buildx prune --all --force || true
 
       - name: Smoke-test pushed frontend image (requires successful push)
@@ -344,3 +361,4 @@ jobs:
           docker run --rm "$IMAGE" sh -lc "echo '--- ls /app/node_modules (top entries)'; ls -la /app/node_modules | head -n 200 || true; echo '--- npm ls --prod --depth=0'; npm ls --prod --depth=0 || true; echo '--- require.resolve @nestjs/jwt'; node -e \"try{console.log(require.resolve('\\\@nestjs/jwt'))}catch(e){console.error(e.message); process.exit(2)}\""
         env:
           DOCKER_BUILDKIT: 1
+
