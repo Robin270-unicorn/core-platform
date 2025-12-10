@@ -322,10 +322,14 @@ jobs:
           COPY --from=builder /app/package.json ./ || true
           # also copy package-lock if present in builder (optional)
           COPY --from=builder /app/package-lock.json ./ || true
+          # Fallback: also copy package.json from the build context in case builder stage didn't include it
+          COPY package.json package-lock.json* ./ || true
           # copy .next built on the runner into image
           COPY .next .next
           # copy public static assets (if any)
           COPY public ./public
+          # Debug: print package.json at build time so CI logs show whether it was copied
+          RUN if [ -f /app/package.json ]; then echo '--- /app/package.json contents at build time ---'; cat /app/package.json; else echo '--- /app/package.json MISSING at build time ---'; fi
           EXPOSE 3000
           # Use the app's start script which runs `next start` (apps/frontend/package.json)
           CMD ["npm", "run", "start"]
@@ -364,5 +368,5 @@ jobs:
           echo "Running runtime checks for frontend image"
           # show package.json presence and node_modules
           docker run --rm "$IMAGE" sh -lc "echo '--- ls /app (top entries)'; ls -la /app || true; echo '--- cat /app/package.json (if present)'; cat /app/package.json || echo '/app/package.json not present'; echo '--- ls /app/node_modules (top entries)'; ls -la /app/node_modules | head -n 200 || true; echo '--- npm ls --prod --depth=0'; npm ls --prod --depth=0 || true"
-         env:
-           DOCKER_BUILDKIT: 1
+        env:
+          DOCKER_BUILDKIT: 1
