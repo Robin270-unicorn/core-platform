@@ -101,7 +101,26 @@ jobs:
           elif [ -f package-lock.json ]; then
             cp package-lock.json backend-image-context/package-lock.json
           else
-            echo "No package-lock.json found; npm ci will fail without a lockfile - continuing with npm install fallback"
+            echo "No package-lock.json found; will copy existing node_modules from runner if present"
+          fi
+
+          # copy node_modules from runner to avoid running `npm ci` in the image (prevents lockfile mismatch)
+          if [ -d apps/backend/node_modules ]; then
+            echo "Copying apps/backend/node_modules into image context"
+            cp -a apps/backend/node_modules backend-image-context/node_modules
+          elif [ -d node_modules ]; then
+            echo "Copying root node_modules into image context"
+            cp -a node_modules backend-image-context/node_modules
+          else
+            echo "Warning: no node_modules found in workspace; docker build will fallback to installing inside image"
+          fi
+
+          # ensure node_modules dir exists (so Docker COPY won't fail if nothing was copied)
+          mkdir -p backend-image-context/node_modules
+
+          # attempt to prune dev deps in the copied node_modules to slim image (non-fatal)
+          if [ -d backend-image-context/node_modules ] && [ "$(ls -A backend-image-context/node_modules 2>/dev/null)" ]; then
+            (cd backend-image-context && npm prune --production --legacy-peer-deps) || true
           fi
 
           echo "backend-image-context contents:"
@@ -112,11 +131,16 @@ jobs:
           cat > backend-image-context/Dockerfile <<'EOF'
           FROM node:20-alpine
           WORKDIR /app
-          # copy package manifests and install production deps
+          # copy package manifests (for runtime metadata) and pre-populated node_modules from runner
           COPY package.json package-lock.json* ./
-          # if package-lock.json is missing, npm ci will fail; we rely on npm to handle it in the runner
-          RUN npm ci --prefer-offline --no-audit --no-fund --legacy-peer-deps --production
+          COPY node_modules ./node_modules
           COPY dist ./dist
+          # If node_modules is empty (wasn't copied), install production deps here. Use npm install to avoid lockfile mismatch errors.
+          RUN if [ -z "$(ls -A node_modules 2>/dev/null)" ]; then \
+                npm install --omit=dev --legacy-peer-deps --no-audit --no-fund; \
+              else \
+                echo "Using preinstalled node_modules"; \
+              fi
           EXPOSE 3000
           CMD ["node", "dist/main.js"]
           EOF
