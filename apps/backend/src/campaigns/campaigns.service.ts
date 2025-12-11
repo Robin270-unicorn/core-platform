@@ -417,7 +417,7 @@ export class CampaignsService {
   }
 
   
-
+  //report komentáře
   async reportComment(userId: string, input: ReportCommentInput): Promise<{ success: boolean; message?: string }> {
     const comment = await this.commentRepository.findOne({ where: { id: input.commentId } });
 
@@ -428,8 +428,7 @@ export class CampaignsService {
     if (comment.status === CommentStatus.REMOVED) {
       throw new BadRequestException('Cannot report a removed comment');
     }
-    comment.reportsCount += 1;
-    comment.lastReportedAt = new Date();
+    
 
     //auto skrytí při překročení limitu
     const existingReport = await this.commentReportRepository.findOne({
@@ -440,24 +439,25 @@ export class CampaignsService {
     });
 
     if (existingReport) {
-      //Bud da chybu nebo jen vrátíme false
+      //když už user komentář nahlásil tak mu to nedovolí reportnout znovu
       throw new BadRequestException('You have already reported this comment');
+    }else{
+
+      //vytoření reportu
+      const report = this.commentReportRepository.create({
+        userId,
+        commentId: input.commentId,
+      });
+    
+      await this.commentReportRepository.save(report);
+
+      comment.reportsCount += 1;
+      comment.lastReportedAt = new Date();
+
+      if (comment.reportsCount >= AUTO_HIDE_THRESHOLD) {
+        comment.status = CommentStatus.HIDDEN;
+      }
     }
-
-    //vytoření reportu
-    const report = this.commentReportRepository.create({
-      userId,
-      commentId: input.commentId,
-    });
-    await this.commentReportRepository.save(report);
-
-    comment.reportsCount += 1;
-    comment.lastReportedAt = new Date();
-
-    if (comment.reportsCount >= AUTO_HIDE_THRESHOLD) {
-      comment.status = CommentStatus.HIDDEN;
-    }
-
     await this.commentRepository.save(comment);
 
     return { success: true };

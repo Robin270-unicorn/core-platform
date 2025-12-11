@@ -43,7 +43,7 @@ export class Comment {
 
   @Column({ nullable: true })
   @Field(() => String, { nullable: true })
-  moderatedBy?: string; // ID moderátora, který provedl akci
+  moderatedBy?: string; //ID moderátora který provedl akci
 
   @Column({ default: 0 })
   @Field(() => Int)
