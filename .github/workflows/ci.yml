@@ -209,7 +209,7 @@ jobs:
           fi
           echo "Calling backend redeploy URL: $BE_REDEPLOY_URL"
           # Perform GET with header bearerAuth and capture HTTP status + body
-          http_code=$(curl -sS -o /tmp/redeploy_response -w "%{http_code}" -H "bearerAuth: $CLF_API_TOKEN" -X GET "$BE_REDEPLOY_URL" || true)
+          http_code=$(curl -sS -o /tmp/redeploy_response -w "%{http_code}" -H "Authorization: Bearer $CLF_API_TOKEN" -X GET "$BE_REDEPLOY_URL" || true)
           body=$(cat /tmp/redeploy_response || true)
           echo "HTTP status: $http_code"
           echo "Response body:\n$body"
@@ -284,7 +284,7 @@ jobs:
           fi
           echo "Calling frontend redeploy URL: $FE_REDEPLOY_URL"
           # Perform GET with header bearerAuth and capture HTTP status + body
-          http_code=$(curl -sS -o /tmp/fe_redeploy_response -w "%{http_code}" -H "bearerAuth: $CLF_API_TOKEN" -X GET "$FE_REDEPLOY_URL" || true)
+          http_code=$(curl -sS -o /tmp/fe_redeploy_response -w "%{http_code}" -H "Authorization: Bearer $CLF_API_TOKEN" -X GET "$FE_REDEPLOY_URL" || true)
           body=$(cat /tmp/fe_redeploy_response || true)
           echo "HTTP status: $http_code"
           echo "Response body:\n$body"
