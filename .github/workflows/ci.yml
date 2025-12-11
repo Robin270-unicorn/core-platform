@@ -234,9 +234,9 @@ jobs:
           
           # Install all dependencies
           RUN if [ -f package-lock.json ]; then \
-            npm ci --legacy-peer_deps --no-audit --no-fund; \
+            npm ci --legacy-peer-deps --no-audit --no-fund; \
           else \
-            npm install --legacy-peer_deps --no-audit --no-fund; \
+            npm install --legacy-peer-deps --no-audit --no-fund; \
           fi
           
           # Create .env with GraphQL URL (in apps/frontend directory next to src)
