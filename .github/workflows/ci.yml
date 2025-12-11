@@ -196,6 +196,28 @@ jobs:
         env:
           DOCKER_BUILDKIT: 1
 
+      - name: Trigger backend redeploy
+        if: success()
+        env:
+          CLF_API_TOKEN: ${{ secrets.CLF_API_TOKEN }}
+          BE_REDEPLOY_URL: ${{ secrets.BE_REDEPLOY_URL }}
+        run: |
+          set -e
+          if [ -z "$BE_REDEPLOY_URL" ] || [ -z "$CLF_API_TOKEN" ]; then
+            echo "Missing BE_REDEPLOY_URL or CLF_API_TOKEN; ensure secrets are set"
+            exit 1
+          fi
+          echo "Calling backend redeploy URL: $BE_REDEPLOY_URL"
+          # Perform GET with header bearerAuth and capture HTTP status + body
+          http_code=$(curl -sS -o /tmp/redeploy_response -w "%{http_code}" -H "bearerAuth: $CLF_API_TOKEN" -X GET "$BE_REDEPLOY_URL" || true)
+          body=$(cat /tmp/redeploy_response || true)
+          echo "HTTP status: $http_code"
+          echo "Response body:\n$body"
+          if [ "$http_code" -lt 200 ] || [ "$http_code" -ge 300 ]; then
+            echo "Backend redeploy request failed with status $http_code"
+            exit 1
+          fi
+
       # ------------------ Frontend image build & push (Dev mode) ------------------
       - name: Build and push frontend image (dev mode)
         run: |
@@ -212,9 +234,9 @@ jobs:
           
           # Install all dependencies
           RUN if [ -f package-lock.json ]; then \
-            npm ci --legacy-peer-deps --no-audit --no-fund; \
+            npm ci --legacy-peer_deps --no-audit --no-fund; \
           else \
-            npm install --legacy-peer-deps --no-audit --no-fund; \
+            npm install --legacy-peer_deps --no-audit --no-fund; \
           fi
           
           # Create .env with GraphQL URL (in apps/frontend directory next to src)
@@ -246,3 +268,27 @@ jobs:
             frontend-image-context
           
           echo "✓ Frontend image built and pushed successfully"
+        env:
+          DOCKER_BUILDKIT: 1
+
+      - name: Trigger frontend redeploy
+        if: success()
+        env:
+          CLF_API_TOKEN: ${{ secrets.CLF_API_TOKEN }}
+          FE_REDEPLOY_URL: ${{ secrets.FE_REDEPLOY_URL }}
+        run: |
+          set -e
+          if [ -z "$FE_REDEPLOY_URL" ] || [ -z "$CLF_API_TOKEN" ]; then
+            echo "Missing FE_REDEPLOY_URL or CLF_API_TOKEN; ensure secrets are set"
+            exit 1
+          fi
+          echo "Calling frontend redeploy URL: $FE_REDEPLOY_URL"
+          # Perform GET with header bearerAuth and capture HTTP status + body
+          http_code=$(curl -sS -o /tmp/fe_redeploy_response -w "%{http_code}" -H "bearerAuth: $CLF_API_TOKEN" -X GET "$FE_REDEPLOY_URL" || true)
+          body=$(cat /tmp/fe_redeploy_response || true)
+          echo "HTTP status: $http_code"
+          echo "Response body:\n$body"
+          if [ "$http_code" -lt 200 ] || [ "$http_code" -ge 300 ]; then
+            echo "Frontend redeploy request failed with status $http_code"
+            exit 1
+          fi
